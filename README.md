@@ -4,6 +4,8 @@
 
 **Turn SIM lines on or off from the Samsung Galaxy home screen with one tap.**
 
+<p align="center"><img src="docs/widget_states.png" width="420" alt="SimTap widget examples: a dual SIM widget with SKT On, KT eSIM Off and Data SKT cells, a single SIM widget with SIM 1 On, and a widget before the first read showing SIM 1 Tap to read. Drawn from the app layout, not a device screenshot."></p>
+
 Turning off a work line after hours or a travel eSIM between trips means going to Settings > Connections > SIM manager every time. SimTap puts those switches in a 4x1 widget that shows whether each line is on or off and switches it with one tap.
 
 ## What it does
