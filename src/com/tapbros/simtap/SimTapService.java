@@ -71,22 +71,27 @@ public class SimTapService extends AccessibilityService {
     private int before = -1;
     /** 회선 칸: 위젯이 정한 목표값(0/1), 모르면 -1(토글). */
     private int jobTarget = -1;
-    /** 회선 칸: 탭할 때 위젯 칸이 보인 캐시 SIM 이름(방향 문자 제거). 스위치 contentDescription 과 켜기 창 제목에 대조한다. */
+    /** 회선 칸: 탭할 때 위젯 칸이 보인 캐시 SIM 이름(방향 문자 제거). 스위치 contentDescription 과 확인 창 제목에 대조한다. */
     private String targetName = "";
     /** 회선 칸: 캐시에 targetName 과 같은 이름이 여럿이다. 그때는 맨 위 화면의 jobSlot 번째만 쓴다. */
     private boolean dupName;
     /** 회선 칸: 캐시의 다른 회선 이름 중 targetName 을 포함하는 더 긴 이름. 그 이름이 창 제목에 있으면 자동 확인하지 않는다. */
     private final List<String> longerNames = new ArrayList<>();
-    /** 켜기 자동 확인을 아직 할 수 있다. 클릭 뒤 5초 안에 처음 뜬 창이 닫히기 전까지만 true. */
+    /** 확인 창 자동 확인을 아직 할 수 있다. 클릭 뒤 5초 안에 처음 뜬 창이 닫히기 전까지만 true. */
     private boolean autoEligible;
     /** 확인 버튼이 눌렸거나(자동·사용자) 진행 창을 봤다. 대기 시간을 늘리고 취소 판정을 하지 않는다. */
     private boolean confirmed;
     /** 창이 닫히고 값이 그대로인 상태를 처음 본 시각. 0 이면 아직 못 봤다. */
     private long unchangedSince;
+    /**
+     * 스위치를 누른 뒤 SIM 관리자가 아닌 Activity 의 창 상태 변화를 봤다(eSIM 끄기 때의 ResetEsimActivity 같은 초기화 화면).
+     * 그 위에 AlertDialog 가 떠 마지막 창 클래스가 바뀌어도 이 작업이 끝날 때까지 켜 둔다. 켜져 있으면 자동 확인하지 않는다.
+     */
+    private boolean sawOtherActivity;
     private String lastUnmatchedTitle;
     private boolean sawDialog;
     private long clickAt;
-    /** 켜기 창이 그려지는 중이면 이벤트가 더 오지 않을 수 있어 짧게 다시 읽는다. */
+    /** 확인 창이 그려지는 중이면 이벤트가 더 오지 않을 수 있어 짧게 다시 읽는다. */
     static final long RECHECK_MS = 250;
     private int recheckLeft;
     private String matchedOnce;
@@ -212,6 +217,7 @@ public class SimTapService extends AccessibilityService {
         autoEligible = false;
         confirmed = false;
         unchangedSince = 0;
+        sawOtherActivity = false;
         handler.removeCallbacks(seekTimeout);
         handler.removeCallbacks(observeTimeout);
         handler.removeCallbacks(recheck);
@@ -237,6 +243,10 @@ public class SimTapService extends AccessibilityService {
         if (e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && e.getClassName() != null
                 && PKG.equals(String.valueOf(e.getPackageName()))) {
             lastWindowClass = e.getClassName().toString();
+            if (phase == OBSERVE && lastWindowClass.endsWith("Activity") && !lastWindowClass.endsWith(SIM_MGR_CLASS_SUFFIX)) {
+                if (!sawOtherActivity) Log.i(TAG, "observe: other activity " + lastWindowClass);
+                sawOtherActivity = true;
+            }
         }
         evaluate();
     }
@@ -351,6 +361,7 @@ public class SimTapService extends AccessibilityService {
         // 누르기 전에 작업 단계를 넘겨 이어지는 이벤트가 다시 누르지 않게 한다.
         handler.removeCallbacks(seekTimeout);
         phase = OBSERVE;
+        sawOtherActivity = false;
         before = b;
         lastUnmatchedTitle = null;
         sawDialog = false;
@@ -452,8 +463,8 @@ public class SimTapService extends AccessibilityService {
                 // 그 본문은 모두 AlertDialog.setMessage 로 들어가 android:id/message 에 그려진다
                 // (테스트 프로필·고정 eSIM c8/i.java, s6 계열 v6/e.java:32,52).
                 // 끄기: 본문을 허용한다. 끄기 창 본문은 데이터가 다른 SIM 으로 넘어감, 다른 SIM 이 없음 같은 끄기의 결과 설명이다.
-                // 두 방향 모두 SIM 관리자가 아닌 Activity 가 앞에 있으면(eSIM 끄기 때의 ResetEsimActivity 같은 초기화 화면) 누르지 않는다.
-                boolean otherActivity = lastWindowClass.endsWith("Activity") && !lastWindowClass.endsWith(SIM_MGR_CLASS_SUFFIX);
+                // 두 방향 모두 스위치를 누른 뒤 SIM 관리자가 아닌 Activity 를 한 번이라도 봤으면(sawOtherActivity) 누르지 않는다.
+                // 마지막 창 클래스만 보면 「ResetEsimActivity → 그 위 AlertDialog」 순서에서 가드가 풀린다.
                 String title = dialogTitle(root);
                 List<AccessibilityNodeInfo> msg = root.findAccessibilityNodeInfosByViewId("android:id/message");
                 boolean hasBody = false;
@@ -465,14 +476,14 @@ public class SimTapService extends AccessibilityService {
                 boolean longer = false;
                 if (title != null) for (String n : longerNames) if (title.contains(n)) { longer = true; break; }
                 boolean bodyBlocks = before == 0 && hasBody;
-                if (targetName.isEmpty() || title == null || !title.contains(targetName) || longer || bodyBlocks || otherActivity) {
+                if (targetName.isEmpty() || title == null || !title.contains(targetName) || longer || bodyBlocks || sawOtherActivity) {
                     matchedOnce = null;
                     // 제목이나 본문이 아직 그려지지 않았을 수 있다(v0.01.00.09 실기기 title=null). 잠시 뒤 다시 읽는다.
                     if (recheckLeft > 0) { recheckLeft--; handler.removeCallbacks(recheck); handler.postDelayed(recheck, RECHECK_MS); }
                     if (!String.valueOf(title).equals(lastUnmatchedTitle)) {
                         lastUnmatchedTitle = String.valueOf(title);
                         Log.i(TAG, dir + " dialog not matched title=" + title + " name=" + targetName + " longer=" + longer
-                                + " body=" + hasBody + " window=" + lastWindowClass);
+                                + " body=" + hasBody + " sawOther=" + sawOtherActivity + " window=" + lastWindowClass);
                     }
                     return;
                 }

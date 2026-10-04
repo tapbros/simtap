@@ -10,7 +10,7 @@ Turning off a work line after hours or a travel eSIM between trips means going t
 
 - **Two line cells.** Shows up to two lines from the top of the SIM manager by their SIM names. Physical SIMs and eSIMs both work.
 - **Data cell.** Shows the SIM used for mobile data and opens the Mobile data picker. It appears only when both SIMs are on.
-- **Plain confirmation dialogs are confirmed for you.** Tapping a cell already says you want that line on or off, so SimTap taps OK once on a confirmation whose title has the SIM name. A turn-off dialog is confirmed even when it explains that data moves to the other SIM.
+- **Plain confirmation dialogs are confirmed for you.** Tapping a cell already says you want that line on or off, so SimTap taps OK once on a confirmation whose title has the SIM name. A turn-off dialog is confirmed whatever its message says, including notes that mobile data moves to the other SIM, that this is the last SIM, or that an MMS is being sent or received.
 - **Risky dialogs are left to you.** SimTap does not tap a turn-on dialog that carries message text, such as one that turns other SIMs off or an eSIM security warning, a three-button dialog, or the eSIM reset screen.
 - **Returns to the home screen** when the switch finishes. After a dialog is confirmed it waits up to three minutes for slow eSIM changes.
 - **Stops when unsure.** If no switch has the SIM name the widget showed, SimTap taps nothing and tells you.
