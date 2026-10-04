@@ -13,11 +13,13 @@
 4. 판정은 logcat 태그 `SimTap` 과 `FakeSim`(`toggle <이름> 0->1`)으로 한다. 흐름 도중 `uiautomator dump` 는 접근성 서비스를 다시 묶으므로 쓰지 않는다.
 5. 끝나면 릴리스판 SimTap 을 다시 설치하고 `adb uninstall com.tapbros.fakesim`, 진짜 SIM 관리자를 한 번 열어 위젯 캐시를 실제 회선으로 되돌린다.
 
-## 시나리오와 기대 결과 (2026-10-04 v0.01.00.21 실기기 Fold8 결과)
+## 시나리오와 기대 결과 (2026-10-04 Fold8 실기기, v0.01.00.21 과 v0.01.00.25)
 
 | 시나리오 | 구성 | 시험 | 결과 |
 |---|---|---|---|
 | psim_esim | 유심 SKT + eSIM KT eSIM | KT eSIM 끄기(사용자 확인), 켜기(자동) | KT eSIM 만 바뀜, 6초 진행 뒤 홈 |
+| psim_esim (0.25) | 같음 | KT eSIM 끄기, SKT(데이터 SIM) 끄기 | 끄기 창 자동 확인, 데이터 SIM 이동 본문도 통과, 홈 |
+| danger_on (0.25) | SKT 꺼짐 + KT eSIM 켜짐 | KT eSIM 끄기(마지막 SIM 본문), SKT 켜기(위험 본문) | 끄기는 자동 확인, 위험 켜기는 거부 |
 | psim_esim2 | + 꺼진 eSIM Travel 이 KT eSIM 위 | Travel 켜기 | 버튼 3개 최대 개수 창을 누르지 않음 |
 | esim_only | 유심 없음 + LG U+ + KT eSIM | KT eSIM 끄기 | KT eSIM 만 꺼짐 |
 | same_name | 두 회선 모두 「SIM」 | 둘째 칸 끄기 | 둘째 스위치만 꺼짐 |
