@@ -16,11 +16,18 @@ public class TrampolineActivity extends Activity {
     static final String ARM_SLOT = "armSlot";
     static final String EXTRA_WIDGET = "widget";
     static final String EXTRA_SLOT = "slot";
-    static final String SIM_MANAGER_ACTION = "com.samsung.android.app.telephonyui.action.OPEN_SIMCARD_ACTIVITY";
+    /**
+     * SimCardMgrActivity 본체와 OPEN_SIMCARD_ACTIVITY 는 MODIFY_PHONE_STATE 를 요구해 일반 앱이 못 연다.
+     * 같은 화면을 가리키는 activity-alias NoPermissionSimCardMgrActivity 는 권한 속성이 없다(telephonyui 매니페스트).
+     */
+    static final String SIM_MANAGER_ACTION = "android.settings.MANAGE_ALL_SIM_PROFILES_SETTINGS";
+    static final String TUI_PKG = "com.samsung.android.app.telephonyui";
+    static final String SIM_MANAGER_ALIAS = TUI_PKG + ".netsettings.NoPermissionSimCardMgrActivity";
 
     /** SIM 관리자 화면 Intent. arm 하지 않으므로 여는 것만으로는 아무것도 누르지 않는다. */
     static Intent simManagerIntent() {
-        return new Intent(SIM_MANAGER_ACTION).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        return new Intent(SIM_MANAGER_ACTION).setClassName(TUI_PKG, SIM_MANAGER_ALIAS)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
     }
 
     @Override
