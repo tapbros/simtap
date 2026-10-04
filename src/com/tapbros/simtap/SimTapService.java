@@ -35,6 +35,10 @@ public class SimTapService extends AccessibilityService {
     static final String[] SUMMARY_IDS = { "android:id/summary", PKG + ":id/summary" };
     static final String BUTTON_OK = "android:id/button1";
     static final String BUTTON_CANCEL = "android:id/button2";
+    /** 세 번째 버튼. 최대 개수 창처럼 버튼이 3개인 창은 자동 확인하지 않는다. */
+    static final String BUTTON_NEUTRAL = "android:id/button3";
+    /** 창이 닫히고 값이 그대로인 상태가 이만큼 이어져야 취소로 본다. 닫힘 이벤트가 값 갱신보다 앞설 수 있다. */
+    static final long CANCEL_GRACE_MS = 3000;
     /** AppCompat 창 제목은 앱 쪽 id 다(실기기 덤프 com.samsung.android.app.telephonyui:id/alertTitle). 프레임워크 창 대비로 android id 도 본다. */
     static final String[] ALERT_TITLES = { PKG + ":id/alertTitle", "android:id/alertTitle" };
     static final String SIM_MGR_CLASS_SUFFIX = "SimCardMgrActivity";
@@ -76,6 +80,8 @@ public class SimTapService extends AccessibilityService {
     private boolean autoEligible;
     /** 확인 버튼이 눌렸거나(자동·사용자) 진행 창을 봤다. 대기 시간을 늘리고 취소 판정을 하지 않는다. */
     private boolean confirmed;
+    /** 창이 닫히고 값이 그대로인 상태를 처음 본 시각. 0 이면 아직 못 봤다. */
+    private long unchangedSince;
     private String lastUnmatchedTitle;
     private boolean sawDialog;
     private long clickAt;
@@ -204,6 +210,7 @@ public class SimTapService extends AccessibilityService {
         confirmClicked = false;
         autoEligible = false;
         confirmed = false;
+        unchangedSince = 0;
         handler.removeCallbacks(seekTimeout);
         handler.removeCallbacks(observeTimeout);
         handler.removeCallbacks(recheck);
@@ -250,7 +257,9 @@ public class SimTapService extends AccessibilityService {
         boolean atTop = scroll == null || !has(scroll, AccessibilityAction.ACTION_SCROLL_BACKWARD);
         boolean atEnd = scroll == null || !has(scroll, AccessibilityAction.ACTION_SCROLL_FORWARD);
 
-        cache(switches, dataTitle, atTop, atEnd);
+        // scroll 이 첫 회선 스위치의 scrollable 조상일 때만 atEnd 를 회선 목록 끝으로 본다(cache 주석).
+        boolean linesAtEnd = !switches.isEmpty() && scroll != null && atEnd;
+        cache(switches, dataTitle, atTop, atEnd, linesAtEnd);
 
         if (phase == IDLE && !takeArm()) return;
         if (phase == SEEK) {
@@ -271,7 +280,8 @@ public class SimTapService extends AccessibilityService {
     }
 
     /** 회선은 맨 위에서만 읽는다. 스크롤된 화면에서는 첫 스위치가 SIM 1 이 아닐 수 있다. */
-    private void cache(List<AccessibilityNodeInfo> switches, AccessibilityNodeInfo dataTitle, boolean atTop, boolean atEnd) {
+    private void cache(List<AccessibilityNodeInfo> switches, AccessibilityNodeInfo dataTitle, boolean atTop, boolean atEnd,
+                       boolean linesAtEnd) {
         boolean changed = false;
         if (!switches.isEmpty() && atTop) {
             List<String> names = new ArrayList<>();
@@ -283,7 +293,11 @@ public class SimTapService extends AccessibilityService {
             }
             // 데이터 행은 회선 행보다 아래다. 그것이 보이거나 맨 위에서 목록 끝까지 한 화면에 보이면 회선을 다 본 것이다.
             // 단일 SIM 에서도 데이터 행은 비활성으로 있다(실기기). 이 분기는 atTop 일 때만 온다.
-            changed = SimCache.saveLines(this, names, on, dataTitle != null || atEnd);
+            // linesAtEnd 는 첫 회선 스위치의 가장 가까운 scrollable 조상(안쪽 recycler_view) 기준이다. on_off_switch 는
+            // SIM 관리자 첫 화면의 회선 행에서만 쓰인다(telephonyui 디컴파일 res/6Z.xml 한 곳, AbstractSimOnOffMainPreference).
+            // 그래서 다른 화면의 목록 끝을 보고 SIM 2 칸을 숨기는 일(0da6209 의 우려)은 생기지 않는다.
+            // 조상 scrollable 이 없으면(scroll == null) atEnd 는 판정 근거가 아니므로 쓰지 않는다.
+            changed = SimCache.saveLines(this, names, on, dataTitle != null || linesAtEnd);
         }
         if (dataTitle != null) {
             AccessibilityNodeInfo summary = summaryOf(dataTitle);
@@ -314,7 +328,8 @@ public class SimTapService extends AccessibilityService {
         AccessibilityNodeInfo sw = findLine(switches, atTop, dup);
         if (sw == null) {
             if (!dup && !downAtEnd) { scroll(down, AccessibilityNodeInfo.ACTION_SCROLL_FORWARD); return; }
-            if (!dup && switches.isEmpty() && dataTitle == null && scroll == null && down == null) return;
+            // 스위치가 하나도 안 보이면 데이터 행이 보일 때(첫 화면이 다 그려진 상태)만 찾지 못함으로 본다. 아니면 기다린다.
+            if (!dup && switches.isEmpty() && dataTitle == null) return;
             Log.i(TAG, "line " + jobSlot + " name=" + targetName + " missing, dup=" + dup + " switches=" + switches.size());
             int slot = jobSlot;
             endJob();
@@ -417,13 +432,17 @@ public class SimTapService extends AccessibilityService {
                 // 스위치를 누른 뒤 5초가 지나서 처음 뜬 창은 이 클릭의 켜기 창이라고 보지 않는다.
                 if (SystemClock.elapsedRealtime() - clickAt > AUTO_CONFIRM_WINDOW_MS) autoEligible = false;
             }
+            // 창이 다시 떴으면 취소 유예를 처음부터 센다.
+            unchangedSince = 0;
             List<AccessibilityNodeInfo> ok = root.findAccessibilityNodeInfosByViewId(BUTTON_OK);
             // 확인을 누르면 창은 닫히지 않고 스피너를 보이다가 SIM 작업이 끝나면 닫힌다. 그 진행 창을 봤으면 확인된 것이다.
             if (showsProgress(root, ok)) markConfirmed("progress");
             if (ok == null || ok.isEmpty()) return;
             List<AccessibilityNodeInfo> cancel = root.findAccessibilityNodeInfosByViewId(BUTTON_CANCEL);
-            // 취소 버튼이 없는 창(「SIM을 끌 수 없음」 등 안내만 하는 창)은 누르지 않는다.
-            if (before == 0 && autoEligible && !confirmClicked && cancel != null && !cancel.isEmpty()) {
+            List<AccessibilityNodeInfo> neutral = root.findAccessibilityNodeInfosByViewId(BUTTON_NEUTRAL);
+            // 취소 버튼이 없는 창(「SIM을 끌 수 없음」 등 안내만 하는 창)과 버튼이 3개인 창(최대 개수 창)은 누르지 않는다.
+            if (before == 0 && autoEligible && !confirmClicked && cancel != null && !cancel.isEmpty()
+                    && (neutral == null || neutral.isEmpty())) {
                 // 창 제목이 누른 스위치의 SIM 이름을 담을 때만 누른다. 아니면 사용자에게 맡긴다(값 변화로 판정).
                 // 본문이 있는 창도 누르지 않는다. eSIM 테스트 프로필·고정 경고, 다른 SIM 을 끄는 켜기 창은 모두
                 // 본문이 있고 정상 켜기 창(s6/c0 기본)은 본문이 없다(telephonyui 디컴파일, 실기기 단일 SIM 확인).
@@ -485,9 +504,13 @@ public class SimTapService extends AccessibilityService {
             endJob();
             performGlobalAction(GLOBAL_ACTION_HOME);
         } else if (sawDialog && !confirmed) {
-            // 확인 없이 창이 닫히고 값이 그대로다. 사용자가 취소한 것으로 보고 홈으로 가지 않고 끝낸다.
-            if (since >= SETTLE_MS) { Log.i(TAG, "line " + jobSlot + " dialog closed without change, cancelled"); endJob(); }
-            else { handler.removeCallbacks(reevaluate); handler.postDelayed(reevaluate, SETTLE_MS - since + 100); }
+            // 확인 없이 창이 닫히고 값이 그대로다. 그 상태가 CANCEL_GRACE_MS 이어지면 사용자가 취소한 것으로 보고
+            // 홈으로 가지 않고 끝낸다. 그 사이 값이 바뀌면 위 분기로 홈에 간다.
+            long nowMs = SystemClock.elapsedRealtime();
+            if (unchangedSince == 0) unchangedSince = nowMs;
+            long wait = Math.max(SETTLE_MS - since, CANCEL_GRACE_MS - (nowMs - unchangedSince));
+            if (wait <= 0) { Log.i(TAG, "line " + jobSlot + " dialog closed without change, cancelled"); endJob(); }
+            else { handler.removeCallbacks(reevaluate); handler.postDelayed(reevaluate, wait + 100); }
         }
     }
 

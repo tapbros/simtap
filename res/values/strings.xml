@@ -27,7 +27,7 @@
     <string name="toast_no_app">No app can open this screen.</string>
     <string name="main_footer">Version %1$s\n© 2026 tapbros · Apache-2.0</string>
     <string name="state_tap_to_read">Tap to read</string>
-    <string name="toast_read_first">Reading the current state. Tap again to change it.</string>
+    <string name="toast_read_first">Reading the current state. Tap again to switch once the widget shows it.</string>
     <string name="cache_none">Not read yet</string>
     <string name="cache_item">%1$s: %2$s</string>
 </resources>

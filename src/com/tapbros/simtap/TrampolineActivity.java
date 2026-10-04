@@ -21,6 +21,8 @@ public class TrampolineActivity extends Activity {
     static final String EXTRA_WIDGET = "widget";
     static final String EXTRA_SLOT = "slot";
     static final String EXTRA_TARGET = "target";
+    /** 회선 칸이 보인 SIM 이름. 캐시 이름과 다르면 낡은 위젯이다. */
+    static final String EXTRA_NAME = "name";
     /**
      * SimCardMgrActivity 본체와 OPEN_SIMCARD_ACTIVITY 는 MODIFY_PHONE_STATE 를 요구해 일반 앱이 못 연다.
      * 같은 화면을 가리키는 activity-alias NoPermissionSimCardMgrActivity 는 권한 속성이 없다(telephonyui 매니페스트).
@@ -48,8 +50,17 @@ public class TrampolineActivity extends Activity {
         }
         int target = getIntent().getIntExtra(EXTRA_TARGET, -1);
         String name = slot == SimTapWidget.SLOT_DATA ? null : SimCache.name(this, slot);
-        if (slot != SimTapWidget.SLOT_DATA && (target < 0 || name == null || name.isEmpty())) {
-            // 상태를 모르는 칸은 스위치를 누르지 않는다. 화면만 열어 서비스가 캐시를 채우게 한다(MainActivity.readState 와 같은 경로).
+        boolean unknown = slot != SimTapWidget.SLOT_DATA && (target < 0 || name == null || name.isEmpty());
+        // 런처에 남은 낡은 위젯: 보인 이름이 캐시와 다르거나 target 이 현재 캐시 상태의 반대가 아니다.
+        boolean stale = false;
+        if (slot != SimTapWidget.SLOT_DATA && !unknown) {
+            int on = SimCache.lineCount(this) > slot ? SimCache.on(this, slot) : -1;
+            int expect = on == 1 ? 0 : on == 0 ? 1 : -1;
+            stale = !name.equals(getIntent().getStringExtra(EXTRA_NAME)) || target != expect;
+        }
+        if (unknown || stale) {
+            // 상태를 모르거나 위젯이 낡은 칸은 스위치를 누르지 않는다. 화면만 열어 서비스가 캐시를 채우게 한다(MainActivity.readState 와 같은 경로).
+            if (stale) SimTapWidget.refresh(this);
             SimTapService.cancel(this);
             try {
                 startActivity(simManagerIntent());

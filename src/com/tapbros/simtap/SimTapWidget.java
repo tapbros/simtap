@@ -78,28 +78,32 @@ public class SimTapWidget extends AppWidgetProvider {
             String state = ctx.getString(on == 1 ? R.string.state_on : on == 0 ? R.string.state_off : R.string.state_tap_to_read);
             int bg = on == 1 ? R.drawable.bg_on : on == 0 ? R.drawable.bg_off : R.drawable.bg_unknown;
             // 보인 상태의 반대가 목표다. 서비스는 실제 값이 이미 목표면 누르지 않는다.
-            fill(ctx, rv, id, slot, name, state, bg, on == 1 ? 0 : on == 0 ? 1 : -1);
+            fill(ctx, rv, id, slot, name, state, bg, on == 1 ? 0 : on == 0 ? 1 : -1, name);
         }
         boolean data = SimCache.dataShown(ctx);
         rv.setViewVisibility(CELL[SLOT_DATA], data ? View.VISIBLE : View.GONE);
         if (data) {
             String cur = SimCache.dataName(ctx);
             fill(ctx, rv, id, SLOT_DATA, ctx.getString(R.string.data_label),
-                    cur.isEmpty() ? ctx.getString(R.string.state_unknown) : cur, R.drawable.bg_data, -1);
+                    cur.isEmpty() ? ctx.getString(R.string.state_unknown) : cur, R.drawable.bg_data, -1, null);
         }
         return rv;
     }
 
-    private static void fill(Context ctx, RemoteViews rv, int id, int slot, String name, String state, int bg, int target) {
+    /** lineName: 회선 칸이 보인 SIM 이름(트램펄린이 캐시와 대조해 낡은 위젯을 거른다). 데이터 칸은 null. */
+    private static void fill(Context ctx, RemoteViews rv, int id, int slot, String name, String state, int bg, int target,
+                             String lineName) {
         rv.setTextViewText(NAME[slot], name);
         rv.setTextViewText(STATE[slot], state);
         rv.setInt(CELL[slot], "setBackgroundResource", bg);
         rv.setContentDescription(CELL[slot], ctx.getString(R.string.desc_fmt, name, state));
         // 칸마다 requestCode 와 data 를 달리해 extra 만 다른 Intent 가 하나로 합쳐지지 않게 한다. data 에 target 도 넣어
         // 런처에 남은 낡은 RemoteViews 가 자기 표시 상태의 target 을 보내게 한다(FLAG_UPDATE_CURRENT 가 덮지 않는다).
-        // 실제 값이 이미 그 target 이면 서비스의 「already target」 경로가 누르지 않는다.
+        // 실제 값이 이미 그 target 이면 서비스의 「already target」 경로가 누르지 않는다. 이름도 같은 이유로 넣는다(해시로 줄인다).
+        String nameKey = lineName != null ? Integer.toHexString(lineName.hashCode()) : "-";
         Intent i = new Intent(ctx, TrampolineActivity.class)
-                .setData(Uri.parse("simtap://widget/" + id + "/" + slot + "/" + target))
+                .setData(Uri.parse("simtap://widget/" + id + "/" + slot + "/" + target + "/" + nameKey))
+                .putExtra(TrampolineActivity.EXTRA_NAME, lineName)
                 .putExtra(TrampolineActivity.EXTRA_WIDGET, id)
                 .putExtra(TrampolineActivity.EXTRA_SLOT, slot)
                 .putExtra(TrampolineActivity.EXTRA_TARGET, target);

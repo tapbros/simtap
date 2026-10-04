@@ -27,7 +27,7 @@
     <string name="toast_no_app">이 화면을 열 수 있는 앱이 없습니다.</string>
     <string name="main_footer">버전 %1$s\n© 2026 tapbros · Apache-2.0</string>
     <string name="state_tap_to_read">눌러서 읽기</string>
-    <string name="toast_read_first">상태를 읽었습니다. 다시 누르면 바꿉니다.</string>
+    <string name="toast_read_first">현재 상태를 읽어 옵니다. 위젯에 표시되면 다시 눌러 바꾸세요.</string>
     <string name="cache_none">아직 읽지 않았습니다</string>
     <string name="cache_item">%1$s: %2$s</string>
 </resources>
