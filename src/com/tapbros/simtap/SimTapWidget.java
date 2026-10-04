@@ -7,6 +7,9 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
 
@@ -23,8 +26,14 @@ public class SimTapWidget extends AppWidgetProvider {
     @Override
     public void onReceive(Context ctx, Intent intent) {
         // 앱을 덮어 설치하면 런처가 위젯을 초기 레이아웃으로 되돌려 탭이 앱 실행으로 바뀐다(v0.01.00.02 실기기). 다시 그린다.
-        if (Intent.ACTION_LOCALE_CHANGED.equals(intent.getAction())
-                || Intent.ACTION_MY_PACKAGE_REPLACED.equals(intent.getAction())) refresh(ctx);
+        if (Intent.ACTION_MY_PACKAGE_REPLACED.equals(intent.getAction())) {
+            // 런처가 업데이트 직후 위젯을 다시 불러오며 초기 레이아웃으로 덮을 수 있어 몇 초 뒤 한 번 더 그린다.
+            Log.i("SimTap", "package replaced, refresh");
+            refresh(ctx);
+            final PendingResult pr = goAsync();
+            final Context app = ctx.getApplicationContext();
+            new Handler(Looper.getMainLooper()).postDelayed(() -> { refresh(app); pr.finish(); }, 4000);
+        } else if (Intent.ACTION_LOCALE_CHANGED.equals(intent.getAction())) refresh(ctx);
         else super.onReceive(ctx, intent);
     }
 
