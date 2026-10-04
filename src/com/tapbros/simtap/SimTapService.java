@@ -33,7 +33,8 @@ public class SimTapService extends AccessibilityService {
     static final String SUMMARY_ID = PKG + ":id/summary";
     static final String BUTTON_OK = "android:id/button1";
     static final String BUTTON_CANCEL = "android:id/button2";
-    static final String ALERT_TITLE = "android:id/alertTitle";
+    /** AppCompat 창 제목은 앱 쪽 id 다(실기기 덤프 com.samsung.android.app.telephonyui:id/alertTitle). 프레임워크 창 대비로 android id 도 본다. */
+    static final String[] ALERT_TITLES = { PKG + ":id/alertTitle", "android:id/alertTitle" };
     static final String SIM_MGR_CLASS_SUFFIX = "SimCardMgrActivity";
     /** arm 뒤 이 안에 SIM 관리자 이벤트가 와야 작업을 시작한다. */
     static final long ARM_WINDOW_MS = 5000;
@@ -412,9 +413,11 @@ public class SimTapService extends AccessibilityService {
 
     /** 확인 창 제목에서 방향 제어 문자를 뺀 값. 제목이 없으면 null. */
     private static String dialogTitle(AccessibilityNodeInfo root) {
-        List<AccessibilityNodeInfo> t = root.findAccessibilityNodeInfosByViewId(ALERT_TITLE);
-        if (t == null || t.isEmpty() || t.get(0).getText() == null) return null;
-        return stripBidi(t.get(0).getText().toString());
+        for (String id : ALERT_TITLES) {
+            List<AccessibilityNodeInfo> t = root.findAccessibilityNodeInfosByViewId(id);
+            if (t != null && !t.isEmpty() && t.get(0).getText() != null) return stripBidi(t.get(0).getText().toString());
+        }
+        return null;
     }
 
     /** U+200E, U+200F, U+061C, U+202A..U+202E, U+2066..U+2069 를 뺀다(삼성 창 제목 앞에 U+200E 가 붙는다). */
