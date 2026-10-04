@@ -23,17 +23,11 @@ public class TrampolineActivity extends Activity {
     static final String EXTRA_TARGET = "target";
     /** 회선 칸이 보인 SIM 이름. 캐시 이름과 다르면 낡은 위젯이다. */
     static final String EXTRA_NAME = "name";
-    /**
-     * SimCardMgrActivity 본체와 OPEN_SIMCARD_ACTIVITY 는 MODIFY_PHONE_STATE 를 요구해 일반 앱이 못 연다.
-     * 같은 화면을 가리키는 activity-alias NoPermissionSimCardMgrActivity 는 권한 속성이 없다(telephonyui 매니페스트).
-     */
-    static final String SIM_MANAGER_ACTION = "android.settings.MANAGE_ALL_SIM_PROFILES_SETTINGS";
-    static final String TUI_PKG = "com.samsung.android.app.telephonyui";
-    static final String SIM_MANAGER_ALIAS = TUI_PKG + ".netsettings.NoPermissionSimCardMgrActivity";
-
-    /** SIM 관리자 화면 Intent. arm 하지 않으므로 여는 것만으로는 아무것도 누르지 않는다. */
+    /** SIM 관리자 화면 Intent. arm 하지 않으므로 여는 것만으로는 아무것도 누르지 않는다. 대상은 build.sh 가 만드는 TargetConfig 에서 온다. */
     static Intent simManagerIntent() {
-        return new Intent(SIM_MANAGER_ACTION).setClassName(TUI_PKG, SIM_MANAGER_ALIAS)
+        Intent i = new Intent();
+        if (TargetConfig.SIM_MANAGER_ACTION != null) i.setAction(TargetConfig.SIM_MANAGER_ACTION);
+        return i.setClassName(TargetConfig.PKG, TargetConfig.SIM_MANAGER_CLASS)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
     }
 

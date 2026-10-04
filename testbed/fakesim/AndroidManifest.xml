@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SimTap 시험 빌드(SIMTAP_TARGET_PKG=com.tapbros.fakesim)가 보는 가짜 SIM 관리자. 진짜 SIM 은 건드리지 않는다. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.tapbros.fakesim">
+
+    <application
+        android:label="@string/app_name"
+        android:allowBackup="false"
+        android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar">
+
+        <!-- singleTask: 이미 떠 있어도 am start 의 시나리오 extra 가 onNewIntent 로 온다. -->
+        <activity
+            android:name=".SimCardMgrActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:label="@string/sim_mgr">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 이름이 SimCardMgrActivity 로 끝나면 SimTap 이 SIM 관리자 첫 화면으로 오인한다. -->
+        <activity
+            android:name=".DataSimPickActivity"
+            android:exported="false"
+            android:label="@string/data_pick_title" />
+    </application>
+</manifest>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 바깥 스크롤 층(큰 제목) + 안쪽 목록(recycler_view) 두 층. 실기기는 NestedScrollView 와 RecyclerView 지만
+     AndroidX 없이 빌드하므로 플랫폼 ScrollView 와 ListView 로 대신한다. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/outer_scroll"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/big_title"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:gravity="center"
+            android:text="@string/sim_mgr"
+            android:textSize="30sp" />
+
+        <!-- 높이는 첫 레이아웃 뒤 바깥 ScrollView 높이로 맞춘다(SimCardMgrActivity). -->
+        <ListView
+            android:id="@+id/recycler_view"
+            android:layout_width="match_parent"
+            android:layout_height="600dp"
+            android:nestedScrollingEnabled="true"
+            android:divider="@null" />
+    </LinearLayout>
+</ScrollView>

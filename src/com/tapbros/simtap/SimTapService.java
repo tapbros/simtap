@@ -28,7 +28,8 @@ import java.util.List;
  */
 public class SimTapService extends AccessibilityService {
     static final String TAG = "SimTap";
-    static final String PKG = "com.samsung.android.app.telephonyui";
+    /** 대상 앱 패키지. build.sh 가 만드는 TargetConfig 에서 온다(릴리스는 telephonyui, 시험 빌드는 SIMTAP_TARGET_PKG). */
+    static final String PKG = TargetConfig.PKG;
     static final String SWITCH_ID = PKG + ":id/on_off_switch";
     /** 설정 행의 제목과 요약. One UI 9.0 Fold8 의 「모바일 데이터」 행은 android 쪽 id 를 쓴다(실기기 덤프). */
     static final String[] TITLE_IDS = { "android:id/title", PKG + ":id/title" };
