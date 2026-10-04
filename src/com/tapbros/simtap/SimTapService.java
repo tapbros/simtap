@@ -300,11 +300,19 @@ public class SimTapService extends AccessibilityService {
             // 취소 버튼이 없는 창(「SIM을 끌 수 없음」 등 안내만 하는 창)은 누르지 않는다.
             if (before == 0 && !confirmClicked && cancel != null && !cancel.isEmpty()) {
                 // 창 제목이 누른 스위치의 SIM 이름을 담을 때만 누른다. 아니면 사용자에게 맡긴다(값 변화로 판정).
+                // 본문이 있는 창도 누르지 않는다. eSIM 테스트 프로필·고정 경고, 다른 SIM 을 끄는 켜기 창은 모두
+                // 본문이 있고 정상 켜기 창(s6/c0 기본)은 본문이 없다(telephonyui 디컴파일, 실기기 단일 SIM 확인).
                 String title = dialogTitle(root);
-                if (targetName.isEmpty() || title == null || !title.contains(targetName)) {
+                List<AccessibilityNodeInfo> msg = root.findAccessibilityNodeInfosByViewId("android:id/message");
+                boolean hasBody = false;
+                if (msg != null) for (AccessibilityNodeInfo m : msg) {
+                    CharSequence t = m.getText();
+                    if (t != null && t.toString().trim().length() > 0) { hasBody = true; break; }
+                }
+                if (targetName.isEmpty() || title == null || !title.contains(targetName) || hasBody) {
                     if (!String.valueOf(title).equals(lastUnmatchedTitle)) {
                         lastUnmatchedTitle = String.valueOf(title);
-                        Log.i(TAG, "turn-on dialog not matched title=" + title + " name=" + targetName);
+                        Log.i(TAG, "turn-on dialog not matched title=" + title + " name=" + targetName + " body=" + hasBody);
                     }
                     return;
                 }
