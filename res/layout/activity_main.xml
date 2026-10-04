@@ -31,6 +31,12 @@
             android:textStyle="bold"
             android:textAppearance="@android:style/TextAppearance.DeviceDefault.Medium" />
 
+        <TextView
+            android:id="@+id/cache_state"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" />
+
         <Button
             android:id="@+id/btn_accessibility"
             android:layout_width="match_parent"

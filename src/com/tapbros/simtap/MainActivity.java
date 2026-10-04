@@ -35,10 +35,39 @@ public class MainActivity extends Activity {
         TextView t = (TextView) findViewById(R.id.service_state);
         t.setText(on ? R.string.service_on : R.string.service_off);
         t.setTextColor(getColor(on ? R.color.ok : R.color.warn));
+        ((TextView) findViewById(R.id.cache_state)).setText(cacheSummary());
+    }
+
+    /** 위젯이 그리는 캐시를 한 줄로. 예: 「SIM 1: 켜짐 · eSIM 회사: 꺼짐 · 데이터: SKT」. */
+    private String cacheSummary() {
+        int lines = SimCache.lineCount(this);
+        boolean data = SimCache.dataShown(this);
+        if (lines == 0 && !data) return getString(R.string.cache_none);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < lines; i++) {
+            String name = SimCache.name(this, i);
+            if (name == null || name.isEmpty()) name = getString(R.string.sim_default, i + 1);
+            int on = SimCache.on(this, i);
+            if (sb.length() > 0) sb.append(" · ");
+            sb.append(getString(R.string.cache_item, name,
+                    getString(on == 1 ? R.string.state_on : on == 0 ? R.string.state_off : R.string.state_unknown)));
+        }
+        if (data) {
+            String cur = SimCache.dataName(this);
+            if (sb.length() > 0) sb.append(" · ");
+            sb.append(getString(R.string.cache_item, getString(R.string.data_label),
+                    cur.isEmpty() ? getString(R.string.state_unknown) : cur));
+        }
+        return sb.toString();
     }
 
     /** arm 없이 SIM 관리자 화면만 연다. 서비스가 화면을 보고 캐시와 위젯을 갱신한다. */
     private void readState() {
+        // 서비스가 꺼져 있으면 열어도 캐시가 채워지지 않는다.
+        if (!SimTapService.isRunning()) {
+            Toast.makeText(this, R.string.toast_service_off_here, Toast.LENGTH_LONG).show();
+            return;
+        }
         // 위젯 탭 직후 남은 arm 이 있으면 스위치가 눌리므로 열기 전에 지운다.
         SimTapService.cancel(this);
         try {

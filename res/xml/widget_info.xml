@@ -10,7 +10,7 @@
     android:targetCellHeight="1"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/widget"
-    android:previewLayout="@layout/widget"
+    android:previewLayout="@layout/widget_preview"
     android:description="@string/widget_desc"
     android:resizeMode="horizontal"
     android:widgetCategory="home_screen" />

@@ -6,7 +6,9 @@
 
 A home screen widget for Samsung Galaxy dual SIM users. Turn a SIM line on or off, or switch the mobile data SIM, without digging into the SIM manager.
 
-**개발 중입니다. 아직 설치 파일이 없습니다.** / **Work in progress. No release yet.**
+**개발 중입니다.** 설치 파일은 [GitHub Releases](https://github.com/tapbros/simtap/releases) 의 사전 릴리스(pre-release) APK 로 받습니다. / **Work in progress.** Get the APK from a pre-release on [GitHub Releases](https://github.com/tapbros/simtap/releases).
+
+알려진 한계: 데이터 칸은 시스템 언어가 한국어나 영어일 때만 「모바일 데이터」 행을 찾습니다. / Known limitation: the data cell finds the Mobile data row only when the system language is Korean or English.
 
 SimTap 은 [ShieldTap](https://github.com/tapbros/shieldtap) 의 형제 앱입니다. / SimTap is a sibling app of ShieldTap.
 

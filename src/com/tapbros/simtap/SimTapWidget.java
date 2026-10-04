@@ -15,7 +15,7 @@ import android.widget.RemoteViews;
 
 /**
  * 4x1 패널. 칸 0 = SIM 1 회선, 칸 1 = SIM 2 회선, 칸 2 = 데이터 SIM.
- * 서비스가 화면에서 그 행을 본 적이 있어야 칸을 보인다. 캐시가 없으면 SIM 1 칸만 「상태 미확인」으로 보인다.
+ * 서비스가 화면에서 그 행을 본 적이 있어야 칸을 보인다. 캐시가 없으면 SIM 1 칸만 「눌러서 읽기」로 보인다.
  */
 public class SimTapWidget extends AppWidgetProvider {
     static final int SLOT_DATA = 2;
@@ -75,7 +75,7 @@ public class SimTapWidget extends AppWidgetProvider {
             String name = lines > slot ? SimCache.name(ctx, slot) : null;
             if (name == null || name.isEmpty()) name = ctx.getString(R.string.sim_default, slot + 1);
             int on = lines > slot ? SimCache.on(ctx, slot) : -1;
-            String state = ctx.getString(on == 1 ? R.string.state_on : on == 0 ? R.string.state_off : R.string.state_unknown);
+            String state = ctx.getString(on == 1 ? R.string.state_on : on == 0 ? R.string.state_off : R.string.state_tap_to_read);
             int bg = on == 1 ? R.drawable.bg_on : on == 0 ? R.drawable.bg_off : R.drawable.bg_unknown;
             // 보인 상태의 반대가 목표다. 서비스는 실제 값이 이미 목표면 누르지 않는다.
             fill(ctx, rv, id, slot, name, state, bg, on == 1 ? 0 : on == 0 ? 1 : -1);
@@ -95,9 +95,11 @@ public class SimTapWidget extends AppWidgetProvider {
         rv.setTextViewText(STATE[slot], state);
         rv.setInt(CELL[slot], "setBackgroundResource", bg);
         rv.setContentDescription(CELL[slot], ctx.getString(R.string.desc_fmt, name, state));
-        // 칸마다 requestCode 와 data 를 달리해 extra 만 다른 Intent 가 하나로 합쳐지지 않게 한다.
+        // 칸마다 requestCode 와 data 를 달리해 extra 만 다른 Intent 가 하나로 합쳐지지 않게 한다. data 에 target 도 넣어
+        // 런처에 남은 낡은 RemoteViews 가 자기 표시 상태의 target 을 보내게 한다(FLAG_UPDATE_CURRENT 가 덮지 않는다).
+        // 실제 값이 이미 그 target 이면 서비스의 「already target」 경로가 누르지 않는다.
         Intent i = new Intent(ctx, TrampolineActivity.class)
-                .setData(Uri.parse("simtap://widget/" + id + "/" + slot))
+                .setData(Uri.parse("simtap://widget/" + id + "/" + slot + "/" + target))
                 .putExtra(TrampolineActivity.EXTRA_WIDGET, id)
                 .putExtra(TrampolineActivity.EXTRA_SLOT, slot)
                 .putExtra(TrampolineActivity.EXTRA_TARGET, target);

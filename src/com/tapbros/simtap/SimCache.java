@@ -35,7 +35,7 @@ final class SimCache {
     static String dataName(Context ctx) { return prefs(ctx).getString(DATA_NAME, ""); }
 
     /**
-     * 맨 위에서 본 스위치들을 저장한다. complete 가 false 면(목록 아래가 화면 밖) 본 수가 적어도 줄이지 않는다.
+     * 맨 위에서 본 스위치들을 저장한다. complete 가 false 면(데이터 행이 안 보이고 목록 아래가 화면 밖) 본 수가 적어도 줄이지 않는다.
      * 값이 하나라도 바뀌었으면 true.
      */
     static boolean saveLines(Context ctx, List<String> names, List<Boolean> on, boolean complete) {
