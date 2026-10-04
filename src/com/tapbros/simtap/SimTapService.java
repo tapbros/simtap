@@ -254,9 +254,11 @@ public class SimTapService extends AccessibilityService {
      */
     private void observe(AccessibilityNodeInfo root, List<AccessibilityNodeInfo> switches, boolean atTop) {
         if (switches.isEmpty()) {
+            // 확인 창이든 진행 창이든 스위치가 가려진 창을 봤으면 클릭 직후의 순간 토글이 아니다.
+            // 끄기 창은 뜨는 순간 이벤트가 화면 쪽으로 잡혀 확인 버튼을 못 볼 수 있다(v0.01.00.01 실기기).
+            sawDialog = true;
             List<AccessibilityNodeInfo> ok = root.findAccessibilityNodeInfosByViewId(BUTTON_OK);
             if (ok == null || ok.isEmpty()) return;
-            sawDialog = true;
             List<AccessibilityNodeInfo> cancel = root.findAccessibilityNodeInfosByViewId(BUTTON_CANCEL);
             // 취소 버튼이 없는 창(「SIM을 끌 수 없음」 등 안내만 하는 창)은 누르지 않는다.
             if (before == 0 && !confirmClicked && cancel != null && !cancel.isEmpty()) {

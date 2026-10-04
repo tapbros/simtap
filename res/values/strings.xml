@@ -11,7 +11,7 @@
     <string name="service_desc">Taps the SIM line switch on the SIM manager screen once, only when you tap a SimTap widget cell. It reads only the SIM manager screen and remembers SIM names and on/off states to show on the widget.</string>
     <string name="toast_service_off">The accessibility service is off. Opening the setup screen.</string>
     <string name="toast_open_fail">Could not open the SIM manager screen.</string>
-    <string name="toast_line_missing">Could not find the switch for SIM %1$d on the SIM manager screen.</string>
+    <string name="toast_line_missing">Could not find the switch for SIM %1$d. Tap it yourself on the screen that is open.</string>
     <string name="toast_data_missing">Could not find an available Mobile data row on the SIM manager screen.</string>
     <string name="main_desc">Turn SIM lines on or off and jump to the mobile data SIM screen from a 4x1 home screen widget. SimTap opens the SIM manager screen and its accessibility service taps the switch for you.</string>
     <string name="service_on">Accessibility service: on</string>
