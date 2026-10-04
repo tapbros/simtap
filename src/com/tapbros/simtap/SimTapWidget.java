@@ -42,6 +42,16 @@ public class SimTapWidget extends AppWidgetProvider {
         for (int id : ids) mgr.updateAppWidget(id, build(ctx, id));
     }
 
+    /**
+     * 접힌 상태에서 한 갱신이 펼친 화면 위젯에 반영되지 않았다(Fold8 One UI 9.0 실기기). 런처가 크기 정보를 다시
+     * 알려 줄 때 그 위젯을 다시 그린다.
+     */
+    @Override
+    public void onAppWidgetOptionsChanged(Context ctx, AppWidgetManager mgr, int id, android.os.Bundle opts) {
+        Log.i("SimTap", "options changed widget=" + id);
+        mgr.updateAppWidget(id, build(ctx, id));
+    }
+
     /** 위젯을 지우면 그 위젯 id 로 남은 arm 기록을 지운다. 위젯별로 저장하는 다른 값은 없다. */
     @Override
     public void onDeleted(Context ctx, int[] ids) {

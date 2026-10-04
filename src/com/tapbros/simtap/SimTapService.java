@@ -184,6 +184,8 @@ public class SimTapService extends AccessibilityService {
         instance = this;
         // 서비스가 새로 붙기 전(재부팅, 재설치)에 남은 arm 은 지금 탭이 아니다.
         disarm(this);
+        // 강제 중지 뒤에는 위젯 버튼이 무효가 된다. 서비스가 다시 붙을 때 새 버튼으로 다시 그린다(v0.01.00.17 실기기).
+        SimTapWidget.refresh(this);
     }
 
     @Override
