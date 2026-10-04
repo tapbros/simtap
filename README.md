@@ -1,18 +1,48 @@
 # SimTap
 
-> One-tap home screen widget for Samsung Galaxy dual SIM.
+**English** · [한국어](README.ko.md)
 
-갤럭시 듀얼 SIM 사용자를 위한 홈 화면 위젯입니다. SIM 관리자 깊숙이 들어가지 않고 위젯에서 회선을 켜고 끄거나 모바일 데이터에 쓸 SIM 을 바꿉니다.
+**Turn SIM lines on or off from the Samsung Galaxy home screen with one tap.**
 
-A home screen widget for Samsung Galaxy dual SIM users. Turn a SIM line on or off, or switch the mobile data SIM, without digging into the SIM manager.
+Turning off a work line after hours or a travel eSIM between trips means going to Settings > Connections > SIM manager every time. SimTap puts those switches in a 4x1 widget that shows whether each line is on or off and switches it with one tap.
 
-**개발 중입니다.** 설치 파일은 [GitHub Releases](https://github.com/tapbros/simtap/releases) 의 사전 릴리스(pre-release) APK 로 받습니다. / **Work in progress.** Get the APK from a pre-release on [GitHub Releases](https://github.com/tapbros/simtap/releases).
+## What it does
 
-알려진 한계: 데이터 칸은 시스템 언어가 한국어나 영어일 때만 「모바일 데이터」 행을 찾습니다. / Known limitation: the data cell finds the Mobile data row only when the system language is Korean or English.
+- **Two line cells.** Shows up to two lines from the top of the SIM manager by their SIM names. Physical SIMs and eSIMs both work.
+- **Data cell.** Shows the SIM used for mobile data and opens the Mobile data picker. It appears only when both SIMs are on.
+- **You confirm turning a line off.** SimTap never taps the warning shown when you turn a line off. Read it and tap Turn off yourself.
+- **Only the plain turn-on dialog is confirmed for you.** SimTap confirms a turn-on dialog only when its title has the SIM name and it has no message text. Dialogs that carry message text, such as ones that turn other SIMs off or eSIM security warnings, and three-button dialogs are left to you.
+- **Returns to the home screen** when the switch finishes. After a dialog is confirmed it waits up to three minutes for slow eSIM changes.
+- **Stops when unsure.** If no switch has the SIM name the widget showed, SimTap taps nothing and tells you.
 
-SimTap 은 [ShieldTap](https://github.com/tapbros/shieldtap) 의 형제 앱입니다. / SimTap is a sibling app of ShieldTap.
+## Install
 
-SimTap 은 개인이 만든 비공식 앱이며 삼성전자와 관계가 없습니다. / SimTap is an unofficial app and is not affiliated with Samsung Electronics.
+1. Turn off Auto Blocker (Settings > Security and privacy) and Play Protect app scanning for a moment. Either one blocks the install. Turn them back on afterwards.
+2. Download the APK from [Releases](https://github.com/tapbros/simtap/releases/latest) and install it.
+3. Open SimTap and turn it on under Open Accessibility settings. If it is greyed out, tap App info > ⋮ > Allow restricted settings first. If that menu item is missing, try turning SimTap on in Accessibility once and it appears.
+4. Long-press an empty area of the home screen, open Widgets > SimTap and place it.
+5. Tap Read current state or the widget cell that says Tap to read. The widget then shows SIM names and states.
+
+To update, install the new APK over the old one. Widgets and settings stay.
+
+## How it works
+
+Normal apps cannot turn SIMs on or off (`MODIFY_PHONE_STATE` is a system permission). When you tap the widget, SimTap opens the SIM manager and its accessibility service taps the switch for you, the same way you would. One UI shows its usual dialogs.
+
+## Security
+
+- Zero requested permissions and no internet permission.
+- The accessibility service sees only the SIM manager app (`com.samsung.android.app.telephonyui`).
+- It taps a switch only after you tap the widget. Opening the SIM manager yourself only lets SimTap remember SIM names and states.
+
+## Tested devices and limits
+
+- Galaxy Z Fold8, One UI 9.0 with one physical SIM, cover and main screens.
+- Dual SIM (SIM plus eSIM, several eSIMs, two physical SIMs) was checked against a test app that mimics the SIM manager. If it fails on a real dual SIM phone, please report the model and One UI version.
+- Up to two line cells. With three or more eSIM profiles only the top two appear.
+- The data cell finds the Mobile data row only when the system language is Korean or English.
+
+SimTap is a sibling app of [ShieldTap](https://github.com/tapbros/shieldtap). It is an unofficial app and is not affiliated with Samsung Electronics.
 
 ## License
 
