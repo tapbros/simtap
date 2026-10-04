@@ -209,7 +209,7 @@ public class SimTapService extends AccessibilityService {
         AccessibilityNodeInfo dataTitle = dataTitle(root);
         AccessibilityNodeInfo anchor = !switches.isEmpty() ? switches.get(0) : dataTitle;
         AccessibilityNodeInfo scroll = anchor != null ? scrollableAncestor(anchor)
-                : lastWindowClass.endsWith(SIM_MGR_CLASS_SUFFIX) ? firstScrollable(root) : null;
+                : lastWindowClass.endsWith(SIM_MGR_CLASS_SUFFIX) ? scrollableForTop(root) : null;
         boolean atTop = scroll == null || !has(scroll, AccessibilityAction.ACTION_SCROLL_BACKWARD);
         boolean atEnd = scroll == null || !has(scroll, AccessibilityAction.ACTION_SCROLL_FORWARD);
 
@@ -473,6 +473,24 @@ public class SimTapService extends AccessibilityService {
             if (n.isScrollable()) return n;
         }
         return null;
+    }
+
+    /**
+     * 기준 줄이 안 보일 때 고를 스크롤 층. 바깥 앱 바 층이 맨 위여도 안쪽 목록은 아래로 밀려 있을 수 있어
+     * (v0.01.00.14 실기기 커버 화면) 위로 더 갈 수 있는 층을 먼저 고른다.
+     */
+    private static AccessibilityNodeInfo scrollableForTop(AccessibilityNodeInfo root) {
+        ArrayDeque<AccessibilityNodeInfo> q = new ArrayDeque<>();
+        q.add(root);
+        while (!q.isEmpty()) {
+            AccessibilityNodeInfo n = q.poll();
+            if (n.isScrollable() && has(n, AccessibilityAction.ACTION_SCROLL_BACKWARD)) return n;
+            for (int i = 0; i < n.getChildCount(); i++) {
+                AccessibilityNodeInfo c = n.getChild(i);
+                if (c != null) q.add(c);
+            }
+        }
+        return firstScrollable(root);
     }
 
     private static AccessibilityNodeInfo firstScrollable(AccessibilityNodeInfo root) {
