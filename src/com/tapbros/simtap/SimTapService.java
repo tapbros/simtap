@@ -64,6 +64,19 @@ public class SimTapService extends AccessibilityService {
     private String lastUnmatchedTitle;
     private boolean sawDialog;
     private long clickAt;
+    /** 켜기 창이 그려지는 중이면 이벤트가 더 오지 않을 수 있어 짧게 다시 읽는다. */
+    static final long RECHECK_MS = 250;
+    private int recheckLeft;
+    private String matchedOnce;
+    private final Runnable recheck = new Runnable() {
+        @Override public void run() {
+            if (phase != OBSERVE || confirmClicked) return;
+            AccessibilityNodeInfo r = getRootInActiveWindow();
+            if (r == null || !PKG.equals(String.valueOf(r.getPackageName()))) return;
+            List<AccessibilityNodeInfo> sw = switches(r);
+            if (sw.isEmpty()) observe(r, sw, null, true);
+        }
+    };
     private boolean confirmClicked;
     private long lastScrollAt;
     private String lastWindowClass = "";
@@ -157,6 +170,9 @@ public class SimTapService extends AccessibilityService {
         confirmClicked = false;
         handler.removeCallbacks(seekTimeout);
         handler.removeCallbacks(observeTimeout);
+        handler.removeCallbacks(recheck);
+        matchedOnce = null;
+        recheckLeft = 0;
     }
 
     @Override
@@ -260,6 +276,8 @@ public class SimTapService extends AccessibilityService {
         confirmClicked = false;
         handler.postDelayed(observeTimeout, OBSERVE_MS);
         clickAt = SystemClock.elapsedRealtime();
+        recheckLeft = 8;
+        matchedOnce = null;
         boolean ok = row.performAction(AccessibilityNodeInfo.ACTION_CLICK);
         Log.i(TAG, "line " + jobSlot + " click before=" + b + " performed=" + ok);
         if (!ok) endJob();
@@ -310,10 +328,20 @@ public class SimTapService extends AccessibilityService {
                     if (t != null && t.toString().trim().length() > 0) { hasBody = true; break; }
                 }
                 if (targetName.isEmpty() || title == null || !title.contains(targetName) || hasBody) {
+                    matchedOnce = null;
+                    // 제목이나 본문이 아직 그려지지 않았을 수 있다(v0.01.00.09 실기기 title=null). 잠시 뒤 다시 읽는다.
+                    if (recheckLeft > 0) { recheckLeft--; handler.removeCallbacks(recheck); handler.postDelayed(recheck, RECHECK_MS); }
                     if (!String.valueOf(title).equals(lastUnmatchedTitle)) {
                         lastUnmatchedTitle = String.valueOf(title);
                         Log.i(TAG, "turn-on dialog not matched title=" + title + " name=" + targetName + " body=" + hasBody);
                     }
+                    return;
+                }
+                // 본문이 제목보다 늦게 그려질 수 있어 같은 판정이 두 번 연속일 때만 누른다.
+                if (!title.equals(matchedOnce)) {
+                    matchedOnce = title;
+                    handler.removeCallbacks(recheck);
+                    handler.postDelayed(recheck, RECHECK_MS);
                     return;
                 }
                 confirmClicked = true;
