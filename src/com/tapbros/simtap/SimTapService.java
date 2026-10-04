@@ -132,6 +132,10 @@ public class SimTapService extends AccessibilityService {
     }
 
     private void endJob() {
+        if (phase != IDLE) {
+            StackTraceElement c = new Throwable().getStackTrace()[1];
+            Log.i(TAG, "end job phase=" + phase + " from " + c.getMethodName() + ":" + c.getLineNumber());
+        }
         phase = IDLE;
         jobSlot = -1;
         before = -1;
