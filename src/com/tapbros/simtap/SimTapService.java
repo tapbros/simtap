@@ -191,7 +191,8 @@ public class SimTapService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent e) {
-        if (e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && e.getClassName() != null) {
+        if (e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && e.getClassName() != null
+                && PKG.equals(String.valueOf(e.getPackageName()))) {
             lastWindowClass = e.getClassName().toString();
         }
         evaluate();
@@ -219,7 +220,12 @@ public class SimTapService extends AccessibilityService {
         if (phase == IDLE && !takeArm()) return;
         if (phase == SEEK) {
             if (anchor == null && !lastWindowClass.endsWith(SIM_MGR_CLASS_SUFFIX)) return;
-            if (jobSlot == SimTapWidget.SLOT_DATA) seekData(dataTitle, scroll, atTop, atEnd);
+            if (jobSlot == SimTapWidget.SLOT_DATA) {
+                // 아래로 찾을 때는 바깥 앱 바 층이 아니라 실제로 더 내려갈 수 있는 가장 안쪽 층을 본다.
+                AccessibilityNodeInfo down = anchor != null ? scroll : deepestScrollable(root, AccessibilityAction.ACTION_SCROLL_FORWARD);
+                boolean downAtEnd = down == null || !has(down, AccessibilityAction.ACTION_SCROLL_FORWARD);
+                seekData(dataTitle, scroll, atTop, down, downAtEnd);
+            }
             else seekLine(switches, dataTitle, scroll, atTop, atEnd);
             // 기다리는 분기나 간격 제한에 걸린 스크롤 뒤에는 이벤트가 더 오지 않을 수 있다. 시간 초과 전까지 다시 읽는다.
             if (phase == SEEK) {
@@ -301,12 +307,13 @@ public class SimTapService extends AccessibilityService {
         if (!ok) endJob();
     }
 
-    private void seekData(AccessibilityNodeInfo dataTitle, AccessibilityNodeInfo scroll, boolean atTop, boolean atEnd) {
+    private void seekData(AccessibilityNodeInfo dataTitle, AccessibilityNodeInfo scroll, boolean atTop,
+                          AccessibilityNodeInfo down, boolean atEnd) {
         if (dataTitle == null) {
             if (!reachedTop && !atTop) { scroll(scroll, AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD); return; }
             reachedTop = true;
-            if (!atEnd) { scroll(scroll, AccessibilityNodeInfo.ACTION_SCROLL_FORWARD); return; }
-            if (scroll != null) { endJob(); toastMissing(SimTapWidget.SLOT_DATA); }
+            if (!atEnd) { scroll(down, AccessibilityNodeInfo.ACTION_SCROLL_FORWARD); return; }
+            if (scroll != null || down != null) { endJob(); toastMissing(SimTapWidget.SLOT_DATA); }
             return;
         }
         AccessibilityNodeInfo row = clickableAncestor(dataTitle);
@@ -501,6 +508,22 @@ public class SimTapService extends AccessibilityService {
             }
         }
         return firstScrollable(root);
+    }
+
+    /** 그 방향으로 움직일 수 있는 scrollable 가운데 BFS 로 마지막에 만나는(가장 안쪽) 층. 없으면 null. */
+    private static AccessibilityNodeInfo deepestScrollable(AccessibilityNodeInfo root, AccessibilityAction a) {
+        AccessibilityNodeInfo found = null;
+        ArrayDeque<AccessibilityNodeInfo> q = new ArrayDeque<>();
+        q.add(root);
+        while (!q.isEmpty()) {
+            AccessibilityNodeInfo n = q.poll();
+            if (n.isScrollable() && has(n, a)) found = n;
+            for (int i = 0; i < n.getChildCount(); i++) {
+                AccessibilityNodeInfo c = n.getChild(i);
+                if (c != null) q.add(c);
+            }
+        }
+        return found;
     }
 
     private static AccessibilityNodeInfo firstScrollable(AccessibilityNodeInfo root) {
