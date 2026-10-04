@@ -196,7 +196,7 @@ public class SimTapService extends AccessibilityService {
         evaluate();
     }
 
-    /** 스크롤 뒤에는 이벤트가 더 오지 않을 수 있어(v0.01.00.12 실기기, 커버 화면) 잠시 뒤 화면을 다시 읽는다. */
+    /** 스크롤 뒤에는 이벤트가 더 오지 않을 수 있어(v0.01.00.12~13 실기기, 커버 화면) 잠시 뒤 화면을 다시 읽는다. */
     private final Runnable reevaluate = new Runnable() {
         @Override public void run() { if (phase != IDLE) evaluate(); }
     };
@@ -220,6 +220,11 @@ public class SimTapService extends AccessibilityService {
             if (anchor == null && !lastWindowClass.endsWith(SIM_MGR_CLASS_SUFFIX)) return;
             if (jobSlot == SimTapWidget.SLOT_DATA) seekData(dataTitle, scroll, atTop, atEnd);
             else seekLine(switches, dataTitle, scroll, atTop, atEnd);
+            // 기다리는 분기나 간격 제한에 걸린 스크롤 뒤에는 이벤트가 더 오지 않을 수 있다. 시간 초과 전까지 다시 읽는다.
+            if (phase == SEEK) {
+                handler.removeCallbacks(reevaluate);
+                handler.postDelayed(reevaluate, SCROLL_GAP_MS + 100);
+            }
         } else if (phase == OBSERVE) {
             observe(root, switches, scroll, atTop);
         }
