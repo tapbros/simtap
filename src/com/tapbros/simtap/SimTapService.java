@@ -69,6 +69,7 @@ public class SimTapService extends AccessibilityService {
     static final long RECHECK_MS = 250;
     private int recheckLeft;
     private String matchedOnce;
+    private long matchedAt;
     private final Runnable recheck = new Runnable() {
         @Override public void run() {
             if (phase != OBSERVE || confirmClicked) return;
@@ -184,7 +185,7 @@ public class SimTapService extends AccessibilityService {
     }
 
     @Override
-    public boolean onUnbind(android.content.Intent i) { instance = null; return super.onUnbind(i); }
+    public boolean onUnbind(android.content.Intent i) { endJob(); instance = null; return super.onUnbind(i); }
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent e) {
@@ -321,6 +322,8 @@ public class SimTapService extends AccessibilityService {
                 // 창 제목이 누른 스위치의 SIM 이름을 담을 때만 누른다. 아니면 사용자에게 맡긴다(값 변화로 판정).
                 // 본문이 있는 창도 누르지 않는다. eSIM 테스트 프로필·고정 경고, 다른 SIM 을 끄는 켜기 창은 모두
                 // 본문이 있고 정상 켜기 창(s6/c0 기본)은 본문이 없다(telephonyui 디컴파일, 실기기 단일 SIM 확인).
+                // 그 본문은 모두 AlertDialog.setMessage 로 들어가 android:id/message 에 그려진다
+                // (테스트 프로필·고정 eSIM c8/i.java, s6 계열 v6/e.java:32,52).
                 String title = dialogTitle(root);
                 List<AccessibilityNodeInfo> msg = root.findAccessibilityNodeInfosByViewId("android:id/message");
                 boolean hasBody = false;
@@ -338,9 +341,11 @@ public class SimTapService extends AccessibilityService {
                     }
                     return;
                 }
-                // 본문이 제목보다 늦게 그려질 수 있어 같은 판정이 두 번 연속일 때만 누른다.
-                if (!title.equals(matchedOnce)) {
-                    matchedOnce = title;
+                // 본문이 제목보다 늦게 그려질 수 있어 RECHECK_MS 이상 떨어진 두 번의 읽기가 모두 일치할 때만 누른다.
+                // 같은 프레임의 이벤트 두 개로 바로 누르지 않게 시간 간격을 강제한다(Fable 리뷰).
+                long nowMs = SystemClock.elapsedRealtime();
+                if (!title.equals(matchedOnce) || nowMs - matchedAt < RECHECK_MS) {
+                    if (!title.equals(matchedOnce)) { matchedOnce = title; matchedAt = nowMs; }
                     handler.removeCallbacks(recheck);
                     handler.postDelayed(recheck, RECHECK_MS);
                     return;
