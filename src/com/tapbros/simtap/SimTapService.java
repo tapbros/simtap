@@ -33,6 +33,7 @@ public class SimTapService extends AccessibilityService {
     static final String SUMMARY_ID = PKG + ":id/summary";
     static final String BUTTON_OK = "android:id/button1";
     static final String BUTTON_CANCEL = "android:id/button2";
+    static final String ALERT_TITLE = "android:id/alertTitle";
     static final String SIM_MGR_CLASS_SUFFIX = "SimCardMgrActivity";
     /** arm 뒤 이 안에 SIM 관리자 이벤트가 와야 작업을 시작한다. */
     static final long ARM_WINDOW_MS = 5000;
@@ -56,6 +57,11 @@ public class SimTapService extends AccessibilityService {
     private boolean reachedTop;
     /** 회선 칸: 누르기 전 값(0/1). */
     private int before = -1;
+    /** 회선 칸: 위젯이 정한 목표값(0/1), 모르면 -1(토글). */
+    private int jobTarget = -1;
+    /** 회선 칸: 누르기 직전 대상 스위치의 contentDescription(SIM 이름). 켜기 창 제목과 대조한다. */
+    private String targetName = "";
+    private String lastUnmatchedTitle;
     private boolean sawDialog;
     private long clickAt;
     private boolean confirmClicked;
@@ -91,7 +97,8 @@ public class SimTapService extends AccessibilityService {
     static void disarm(Context ctx) {
         ctx.getSharedPreferences(TrampolineActivity.PREFS, MODE_PRIVATE).edit()
                 .putLong(TrampolineActivity.ARMED_AT, 0)
-                .putInt(TrampolineActivity.ARM_SLOT, -1).commit();
+                .putInt(TrampolineActivity.ARM_SLOT, -1)
+                .putInt(TrampolineActivity.ARM_TARGET, -1).commit();
     }
 
     /** arm 기록과 진행 중 작업을 지운다. 「상태 읽어 오기」처럼 누르지 않고 화면만 열 때 부른다. */
@@ -119,15 +126,19 @@ public class SimTapService extends AccessibilityService {
     private boolean takeArm() {
         SharedPreferences p = getSharedPreferences(TrampolineActivity.PREFS, MODE_PRIVATE);
         long at = p.getLong(TrampolineActivity.ARMED_AT, 0);
-        if (at == 0 || SystemClock.elapsedRealtime() - at > ARM_WINDOW_MS) return false;
+        long now = SystemClock.elapsedRealtime();
+        // 재부팅하면 elapsedRealtime 이 작아져 now - at 이 음수가 된다. 그런 arm 도 지운다.
+        if (at == 0 || now < at || now - at > ARM_WINDOW_MS) { disarm(this); return false; }
         int slot = p.getInt(TrampolineActivity.ARM_SLOT, -1);
         jobWidget = p.getInt(TrampolineActivity.ARM_WIDGET, -1);
+        int target = p.getInt(TrampolineActivity.ARM_TARGET, -1);
         disarm(this);
         if (slot < 0 || slot > SimTapWidget.SLOT_DATA) return false;
         jobSlot = slot;
+        jobTarget = slot == SimTapWidget.SLOT_DATA ? -1 : target;
         phase = SEEK;
         reachedTop = false;
-        Log.i(TAG, "job start widget=" + jobWidget + " slot=" + slot);
+        Log.i(TAG, "job start widget=" + jobWidget + " slot=" + slot + " target=" + jobTarget);
         return true;
     }
 
@@ -139,6 +150,9 @@ public class SimTapService extends AccessibilityService {
         phase = IDLE;
         jobSlot = -1;
         before = -1;
+        jobTarget = -1;
+        targetName = "";
+        lastUnmatchedTitle = null;
         sawDialog = false;
         confirmClicked = false;
         handler.removeCallbacks(seekTimeout);
@@ -146,7 +160,11 @@ public class SimTapService extends AccessibilityService {
     }
 
     @Override
-    protected void onServiceConnected() { instance = this; }
+    protected void onServiceConnected() {
+        instance = this;
+        // 서비스가 새로 붙기 전(재부팅, 재설치)에 남은 arm 은 지금 탭이 아니다.
+        disarm(this);
+    }
 
     @Override
     public boolean onUnbind(android.content.Intent i) { instance = null; return super.onUnbind(i); }
@@ -190,8 +208,9 @@ public class SimTapService extends AccessibilityService {
                 names.add(d != null && d.length() > 0 ? d.toString() : getString(R.string.sim_default, i + 1));
                 on.add(switches.get(i).isChecked());
             }
-            // 데이터 행은 회선 행보다 아래다. 그것이 보이거나 더 내려갈 곳이 없으면 회선을 다 본 것이다.
-            changed = SimCache.saveLines(this, names, on, atEnd || dataTitle != null);
+            // 데이터 행은 회선 행보다 아래다. 그것이 보일 때만 회선을 다 본 것이다(메인 화면). 단일 SIM 에서도
+            // 데이터 행은 비활성으로 있다(실기기). 목록 끝만 보고 판정하면 다른 화면에서 SIM 2 칸을 숨길 수 있다.
+            changed = SimCache.saveLines(this, names, on, dataTitle != null);
         }
         if (dataTitle != null) {
             AccessibilityNodeInfo summary = summaryOf(dataTitle);
@@ -223,10 +242,20 @@ public class SimTapService extends AccessibilityService {
         AccessibilityNodeInfo row = clickableAncestor(sw);
         if (row == null) row = sw;
         int b = sw.isChecked() ? 1 : 0;
+        if (jobTarget >= 0 && b == jobTarget) {
+            // 위젯이 보인 상태가 낡았다. 이 이벤트의 cache() 가 맨 위에서 본 값으로 캐시와 위젯을 이미 갱신했다.
+            Log.i(TAG, "line " + jobSlot + " already target=" + jobTarget);
+            endJob();
+            performGlobalAction(GLOBAL_ACTION_HOME);
+            return;
+        }
+        CharSequence desc = sw.getContentDescription();
         // 누르기 전에 작업 단계를 넘겨 이어지는 이벤트가 다시 누르지 않게 한다.
         handler.removeCallbacks(seekTimeout);
         phase = OBSERVE;
         before = b;
+        targetName = desc != null ? stripBidi(desc.toString()) : "";
+        lastUnmatchedTitle = null;
         sawDialog = false;
         confirmClicked = false;
         handler.postDelayed(observeTimeout, OBSERVE_MS);
@@ -270,6 +299,15 @@ public class SimTapService extends AccessibilityService {
             List<AccessibilityNodeInfo> cancel = root.findAccessibilityNodeInfosByViewId(BUTTON_CANCEL);
             // 취소 버튼이 없는 창(「SIM을 끌 수 없음」 등 안내만 하는 창)은 누르지 않는다.
             if (before == 0 && !confirmClicked && cancel != null && !cancel.isEmpty()) {
+                // 창 제목이 누른 스위치의 SIM 이름을 담을 때만 누른다. 아니면 사용자에게 맡긴다(값 변화로 판정).
+                String title = dialogTitle(root);
+                if (targetName.isEmpty() || title == null || !title.contains(targetName)) {
+                    if (!String.valueOf(title).equals(lastUnmatchedTitle)) {
+                        lastUnmatchedTitle = String.valueOf(title);
+                        Log.i(TAG, "turn-on dialog not matched title=" + title + " name=" + targetName);
+                    }
+                    return;
+                }
                 confirmClicked = true;
                 Log.i(TAG, "turn-on confirm click performed=" + ok.get(0).performAction(AccessibilityNodeInfo.ACTION_CLICK));
             }
@@ -336,10 +374,25 @@ public class SimTapService extends AccessibilityService {
         return null;
     }
 
-    /** 제목과 같은 행의 summary. 부모와 조부모까지만 본다(더 올라가면 다른 행의 summary 가 잡힌다). */
+    /** 확인 창 제목에서 방향 제어 문자를 뺀 값. 제목이 없으면 null. */
+    private static String dialogTitle(AccessibilityNodeInfo root) {
+        List<AccessibilityNodeInfo> t = root.findAccessibilityNodeInfosByViewId(ALERT_TITLE);
+        if (t == null || t.isEmpty() || t.get(0).getText() == null) return null;
+        return stripBidi(t.get(0).getText().toString());
+    }
+
+    /** U+200E, U+200F, U+061C, U+202A..U+202E, U+2066..U+2069 를 뺀다(삼성 창 제목 앞에 U+200E 가 붙는다). */
+    private static String stripBidi(String s) {
+        return s.replaceAll("[\\u200E\\u200F\\u061C\\u202A-\\u202E\\u2066-\\u2069]", "").trim();
+    }
+
+    /**
+     * 제목과 같은 행의 summary. 부모와 조부모까지만 본다(더 올라가면 다른 행의 summary 가 잡힌다).
+     * 스크롤 가능한 노드(목록 자체)에 닿으면 멈춘다.
+     */
     private static AccessibilityNodeInfo summaryOf(AccessibilityNodeInfo title) {
         AccessibilityNodeInfo n = title.getParent();
-        for (int up = 0; up < 2 && n != null; up++, n = n.getParent()) {
+        for (int up = 0; up < 2 && n != null && !n.isScrollable(); up++, n = n.getParent()) {
             List<AccessibilityNodeInfo> s = n.findAccessibilityNodeInfosByViewId(SUMMARY_ID);
             if (s != null && !s.isEmpty()) return s.get(0);
         }

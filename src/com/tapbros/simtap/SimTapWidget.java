@@ -67,19 +67,20 @@ public class SimTapWidget extends AppWidgetProvider {
             int on = lines > slot ? SimCache.on(ctx, slot) : -1;
             String state = ctx.getString(on == 1 ? R.string.state_on : on == 0 ? R.string.state_off : R.string.state_unknown);
             int bg = on == 1 ? R.drawable.bg_on : on == 0 ? R.drawable.bg_off : R.drawable.bg_unknown;
-            fill(ctx, rv, id, slot, name, state, bg);
+            // 보인 상태의 반대가 목표다. 서비스는 실제 값이 이미 목표면 누르지 않는다.
+            fill(ctx, rv, id, slot, name, state, bg, on == 1 ? 0 : on == 0 ? 1 : -1);
         }
         boolean data = SimCache.dataShown(ctx);
         rv.setViewVisibility(CELL[SLOT_DATA], data ? View.VISIBLE : View.GONE);
         if (data) {
             String cur = SimCache.dataName(ctx);
             fill(ctx, rv, id, SLOT_DATA, ctx.getString(R.string.data_label),
-                    cur.isEmpty() ? ctx.getString(R.string.state_unknown) : cur, R.drawable.bg_data);
+                    cur.isEmpty() ? ctx.getString(R.string.state_unknown) : cur, R.drawable.bg_data, -1);
         }
         return rv;
     }
 
-    private static void fill(Context ctx, RemoteViews rv, int id, int slot, String name, String state, int bg) {
+    private static void fill(Context ctx, RemoteViews rv, int id, int slot, String name, String state, int bg, int target) {
         rv.setTextViewText(NAME[slot], name);
         rv.setTextViewText(STATE[slot], state);
         rv.setInt(CELL[slot], "setBackgroundResource", bg);
@@ -88,7 +89,8 @@ public class SimTapWidget extends AppWidgetProvider {
         Intent i = new Intent(ctx, TrampolineActivity.class)
                 .setData(Uri.parse("simtap://widget/" + id + "/" + slot))
                 .putExtra(TrampolineActivity.EXTRA_WIDGET, id)
-                .putExtra(TrampolineActivity.EXTRA_SLOT, slot);
+                .putExtra(TrampolineActivity.EXTRA_SLOT, slot)
+                .putExtra(TrampolineActivity.EXTRA_TARGET, target);
         rv.setOnClickPendingIntent(CELL[slot], PendingIntent.getActivity(ctx, id * 10 + slot, i,
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
     }
