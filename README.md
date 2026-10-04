@@ -1,4 +1,4 @@
-# SimTap 심탭
+# SimTap
 
 > One-tap home screen widget for Samsung Galaxy dual SIM.
 
