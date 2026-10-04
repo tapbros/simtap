@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SimTap</string>
+    <string name="state_on">On</string>
+    <string name="state_off">Off</string>
+    <string name="state_unknown">Unknown</string>
+    <string name="sim_default">SIM %1$d</string>
+    <string name="data_label">Mobile data</string>
+    <string name="desc_fmt">%1$s, %2$s</string>
+    <string name="widget_desc">Turn SIM lines on or off and open the mobile data SIM screen.</string>
+    <string name="service_desc">Taps the SIM line switch on the SIM manager screen once, only when you tap a SimTap widget cell. It reads only the SIM manager screen and remembers SIM names and on/off states to show on the widget.</string>
+    <string name="toast_service_off">The accessibility service is off. Opening the setup screen.</string>
+    <string name="toast_open_fail">Could not open the SIM manager screen.</string>
+    <string name="toast_line_missing">Could not find the switch for SIM %1$d on the SIM manager screen.</string>
+    <string name="toast_data_missing">Could not find an available Mobile data row on the SIM manager screen.</string>
+    <string name="main_desc">Turn SIM lines on or off and jump to the mobile data SIM screen from a 4x1 home screen widget. SimTap opens the SIM manager screen and its accessibility service taps the switch for you.</string>
+    <string name="service_on">Accessibility service: on</string>
+    <string name="service_off">Accessibility service: off</string>
+    <string name="btn_accessibility">Open Accessibility settings</string>
+    <string name="restricted_title">If accessibility is greyed out</string>
+    <string name="restricted_body">On Android 13 and later, apps installed from outside an app store are blocked from accessibility until you allow them. Open App info, tap ⋮ at the top right, tap Allow restricted settings and verify. Then turn on SimTap in Accessibility.</string>
+    <string name="btn_app_info">Open App info</string>
+    <string name="btn_pin_widget">Add widget to home screen</string>
+    <string name="toast_pin_unsupported">This home screen cannot add widgets directly. Long-press an empty area of the home screen and pick SimTap in Widgets.</string>
+    <string name="btn_read_state">Read current state</string>
+    <string name="read_state_hint">Opens the SIM manager screen without tapping anything so the widget can show SIM names and states. Go back when it opens.</string>
+    <string name="toast_no_app">No app can open this screen.</string>
+    <string name="main_footer">Version %1$s\n© 2026 tapbros · Apache-2.0</string>
+</resources>

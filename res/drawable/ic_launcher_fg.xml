@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 직접 그린 SIM 카드: 오른쪽 위 모서리를 자른 카드와 가운데 칩. 108dp 캔버스의 가운데 66dp 안전 영역 안에 둔다. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
+        android:pathData="M38,30L62,30L74,42L74,78L38,78ZM44,48L68,48L68,72L44,72Z" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M47,51L65,51L65,58L47,58ZM47,61L65,61L65,69L47,69Z" />
+</vector>

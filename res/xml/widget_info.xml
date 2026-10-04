@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 4x1 패널. minWidth 250dp = 4칸 기본(70n-30). 가로로만 줄이고 늘린다. 3칸(180dp) 아래로는 칸 이름이 잘려 막는다.
+     상태는 접근성 서비스가 SIM 관리자 화면에서 본 값의 캐시라 주기 갱신이 필요 없다. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="180dp"
+    android:minResizeHeight="40dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget"
+    android:previewLayout="@layout/widget"
+    android:description="@string/widget_desc"
+    android:resizeMode="horizontal"
+    android:widgetCategory="home_screen" />

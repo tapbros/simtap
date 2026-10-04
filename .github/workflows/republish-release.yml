@@ -1,0 +1,156 @@
+name: Republish release as github-actions[bot]
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag of the release to republish (drafts included)"
+        required: true
+        type: string
+      latest:
+        description: "Mark the new release as latest"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: republish-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  republish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag }}
+      LATEST: ${{ inputs.latest }}
+      BOT_LOGIN: github-actions[bot]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Republish
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          mkdir -p "$work/assets"
+
+          # 1. Find the release by tag (drafts included).
+          gh api "repos/$GH_REPO/releases" --paginate \
+            --jq '.[] | select(.tag_name == env.TAG)' | jq -s '.' > "$work/matches.json"
+          count="$(jq 'length' "$work/matches.json")"
+          if [ "$count" -eq 0 ]; then
+            echo "::error::No release found for tag '$TAG'"
+            exit 1
+          fi
+          if [ "$count" -gt 1 ]; then
+            echo "::error::$count releases share tag '$TAG'; resolve manually"
+            exit 1
+          fi
+          jq '.[0]' "$work/matches.json" > "$work/release.json"
+
+          id="$(jq -r '.id' "$work/release.json")"
+          name="$(jq -r '.name // ""' "$work/release.json")"
+          draft="$(jq -r '.draft' "$work/release.json")"
+          prerelease="$(jq -r '.prerelease' "$work/release.json")"
+          commitish="$(jq -r '.target_commitish // ""' "$work/release.json")"
+          author="$(jq -r '.author.login' "$work/release.json")"
+          jq -r '.body // ""' "$work/release.json" > "$work/body.md"
+          echo "Found release id=$id draft=$draft prerelease=$prerelease author=$author target=$commitish"
+
+          # 2. Idempotent exit.
+          if [ "$author" = "$BOT_LOGIN" ]; then
+            echo "Release already authored by $BOT_LOGIN; nothing to do."
+            exit 0
+          fi
+
+          # 3. Download every asset through the asset API (works for drafts).
+          gh api "repos/$GH_REPO/releases/$id/assets" --paginate \
+            --jq '.[] | [.id, .name] | @tsv' > "$work/assets.tsv"
+          n_expected=0
+          while IFS=$'\t' read -r aid aname; do
+            [ -n "$aid" ] || continue
+            echo "Downloading $aname"
+            gh api -H "Accept: application/octet-stream" \
+              "repos/$GH_REPO/releases/assets/$aid" > "$work/assets/$aname"
+            sha256sum "$work/assets/$aname"
+            n_expected=$((n_expected + 1))
+          done < "$work/assets.tsv"
+          shopt -s nullglob
+          files=("$work/assets"/*)
+          n_local="${#files[@]}"
+          if [ "$n_local" -ne "$n_expected" ]; then
+            echo "::error::Downloaded $n_local files but the release lists $n_expected assets"
+            exit 1
+          fi
+
+          # Decide whether the tag already exists on the remote.
+          tag_exists=false
+          if gh api "repos/$GH_REPO/git/ref/tags/$TAG" > /dev/null 2>&1; then
+            tag_exists=true
+          fi
+          if [ "$tag_exists" = false ] && [ -z "$commitish" ]; then
+            echo "::error::Tag '$TAG' is not on the remote and the release has no target_commitish"
+            exit 1
+          fi
+
+          # 4. Delete the original release. The tag is kept.
+          gh api -X DELETE "repos/$GH_REPO/releases/$id"
+          echo "Deleted release $id"
+
+          # 5. Recreate with the same tag, title, notes and assets.
+          args=("$TAG" --notes-file "$work/body.md")
+          if [ -n "$name" ]; then
+            args+=(--title "$name")
+          fi
+          if [ "$tag_exists" = false ]; then
+            args+=(--target "$commitish")
+          fi
+          if [ "$prerelease" = true ]; then
+            args+=(--prerelease)
+          fi
+          if [ "$LATEST" = false ]; then
+            args+=(--latest=false)
+          fi
+          gh release create "${args[@]}" "${files[@]}"
+
+          # 6. Verify author, asset count and SHA-256 of every asset.
+          gh api "repos/$GH_REPO/releases/tags/$TAG" > "$work/new.json"
+          new_id="$(jq -r '.id' "$work/new.json")"
+          new_author="$(jq -r '.author.login' "$work/new.json")"
+          echo "New release id=$new_id author=$new_author"
+          gh api "repos/$GH_REPO/releases/$new_id/assets" --paginate \
+            --jq '.[] | [.id, .name, (.digest // "")] | @tsv' > "$work/new_assets.tsv"
+          n_new="$(grep -c . "$work/new_assets.tsv" || true)"
+          echo "New asset count: $n_new (expected $n_local)"
+          fail=0
+          if [ "$new_author" != "$BOT_LOGIN" ]; then
+            echo "::error::New release author is '$new_author', expected '$BOT_LOGIN'"
+            fail=1
+          fi
+          if [ "$n_new" -ne "$n_local" ]; then
+            echo "::error::Asset count mismatch"
+            fail=1
+          fi
+          while IFS=$'\t' read -r aid aname digest; do
+            [ -n "$aid" ] || continue
+            remote="${digest#sha256:}"
+            if [ -z "$remote" ]; then
+              remote="$(gh api -H "Accept: application/octet-stream" \
+                "repos/$GH_REPO/releases/assets/$aid" | sha256sum | cut -d' ' -f1)"
+            fi
+            local_hash=""
+            if [ -f "$work/assets/$aname" ]; then
+              local_hash="$(sha256sum "$work/assets/$aname" | cut -d' ' -f1)"
+            fi
+            echo "$remote  $aname"
+            if [ "$remote" != "$local_hash" ]; then
+              echo "::error::SHA-256 mismatch for $aname (local=${local_hash:-missing})"
+              fail=1
+            fi
+          done < "$work/new_assets.tsv"
+          exit "$fail"
