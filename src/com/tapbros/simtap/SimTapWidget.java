@@ -22,7 +22,9 @@ public class SimTapWidget extends AppWidgetProvider {
 
     @Override
     public void onReceive(Context ctx, Intent intent) {
-        if (Intent.ACTION_LOCALE_CHANGED.equals(intent.getAction())) refresh(ctx);
+        // 앱을 덮어 설치하면 런처가 위젯을 초기 레이아웃으로 되돌려 탭이 앱 실행으로 바뀐다(v0.01.00.02 실기기). 다시 그린다.
+        if (Intent.ACTION_LOCALE_CHANGED.equals(intent.getAction())
+                || Intent.ACTION_MY_PACKAGE_REPLACED.equals(intent.getAction())) refresh(ctx);
         else super.onReceive(ctx, intent);
     }
 

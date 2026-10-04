@@ -32,6 +32,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        SimTapWidget.refresh(this);
         boolean on = isServiceEnabled();
         TextView t = (TextView) findViewById(R.id.service_state);
         t.setText(on ? R.string.service_on : R.string.service_off);
