@@ -8,7 +8,7 @@
     <string name="data_label">Data</string>
     <string name="desc_fmt">%1$s, %2$s</string>
     <string name="widget_desc">Turn SIM lines on or off and open the mobile data SIM screen.</string>
-    <string name="service_desc">Works only when you tap a SimTap widget cell. A SIM line cell opens the SIM manager screen, taps that SIM line switch once and, when turning a line on, taps OK once on the turn-on confirmation. You confirm turning a line off yourself. When the change is done it goes to the home screen. The data cell only opens the Mobile data screen; you pick the SIM and apply it. It reads only the SIM manager screen and remembers SIM names and on/off states to show on the widget.</string>
+    <string name="service_desc">Works only when you tap a SimTap widget cell. A SIM line cell opens the SIM manager screen, taps that SIM line switch once and taps OK once on the ordinary confirmation that follows. It does not tap a turn-on confirmation that also turns off another SIM, a confirmation with three buttons, or the eSIM reset screen. When it is done it returns to the home screen. The data cell only opens the Mobile data screen; you pick the SIM and apply it. It reads only the SIM manager screen and remembers SIM names and on/off states to show on the widget.</string>
     <string name="toast_service_off">The accessibility service is off. Opening the setup screen.</string>
     <string name="toast_service_off_here">Turn on SimTap in Accessibility first.</string>
     <string name="toast_open_fail">Could not open the SIM manager screen. Change it yourself in Settings > Connections > SIM manager.</string>

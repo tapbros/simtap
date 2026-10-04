@@ -8,7 +8,7 @@
     <string name="data_label">데이터</string>
     <string name="desc_fmt">%1$s, %2$s</string>
     <string name="widget_desc">SIM 회선을 켜고 끄고 모바일 데이터 SIM 화면을 엽니다.</string>
-    <string name="service_desc">SimTap 위젯 칸을 탭했을 때만 동작합니다. 회선 칸은 SIM 관리자 화면을 열어 그 회선 스위치를 한 번 누르고 켜기일 때는 켜기 확인 창의 확인을 한 번 누릅니다. 끄기 확인은 직접 누릅니다. 바뀌면 홈 화면으로 갑니다. 데이터 칸은 모바일 데이터 화면을 열기만 하고 SIM 선택과 적용은 직접 합니다. SIM 관리자 화면만 읽고 위젯에 보일 SIM 이름과 켜짐·꺼짐 상태를 기억합니다.</string>
+    <string name="service_desc">SimTap 위젯 칸을 탭했을 때만 동작합니다. 회선 칸은 SIM 관리자 화면을 열어 그 회선 스위치를 한 번 누르고 뜨는 일반 확인 창의 확인을 한 번 누릅니다. 다른 SIM 을 함께 끄는 켜기 창, 버튼이 셋인 창, eSIM 초기화 화면은 누르지 않습니다. 끝나면 홈 화면으로 돌아갑니다. 데이터 칸은 모바일 데이터 화면을 열기만 하고 SIM 선택과 적용은 직접 합니다. SIM 관리자 화면만 읽고 위젯에 보일 SIM 이름과 켜짐·꺼짐 상태를 기억합니다.</string>
     <string name="toast_service_off">접근성 서비스가 꺼져 있습니다. 설정 안내 화면을 엽니다.</string>
     <string name="toast_service_off_here">접근성에서 SimTap 을 먼저 켜 주세요.</string>
     <string name="toast_open_fail">SIM 관리자 화면을 열 수 없습니다. 설정 > 연결 > SIM 관리자에서 직접 바꿔 주세요.</string>

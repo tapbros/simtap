@@ -47,7 +47,7 @@ public class SimTapService extends AccessibilityService {
     static final long ARM_WINDOW_MS = 10000;
     /** arm 뒤 이 안에 행을 누르지 못하면 토스트로 알린다. 스크롤 시간을 포함한다. */
     static final long SEEK_MS = 8000;
-    /** 행을 누른 뒤 값 변화를 기다리는 시간. 끄기 확인은 사용자가 누르므로 넉넉히 둔다. */
+    /** 행을 누른 뒤 값 변화를 기다리는 시간. 자동 확인하지 않는 창은 사용자가 누르므로 넉넉히 둔다. */
     static final long OBSERVE_MS = 30000;
     /** 확인 버튼이 눌렸거나 진행 창을 본 뒤의 대기 시간. eSIM 단말은 SIM 작업 완료까지 최대 180초 걸린다. */
     static final long OBSERVE_CONFIRMED_MS = 180000;
@@ -420,7 +420,7 @@ public class SimTapService extends AccessibilityService {
     }
 
     /**
-     * 확인 창이 뜨면 활성 창에 회선 스위치가 없다. 켜기 방향만 확인 버튼을 한 번 누르고 끄기는 사용자에게 맡긴다.
+     * 확인 창이 뜨면 활성 창에 회선 스위치가 없다. 켜기·끄기 모두 조건에 맞는 일반 확인 창만 확인 버튼을 한 번 누르고 나머지는 사용자에게 맡긴다.
      * 화면으로 돌아와 값이 바뀌었으면(확인 뒤 SIM 작업이 끝난 것) 홈으로 간다.
      */
     private void observe(AccessibilityNodeInfo root, List<AccessibilityNodeInfo> switches,
@@ -430,7 +430,7 @@ public class SimTapService extends AccessibilityService {
             // 끄기 창은 뜨는 순간 이벤트가 화면 쪽으로 잡혀 확인 버튼을 못 볼 수 있다(v0.01.00.01 실기기).
             if (!sawDialog) {
                 sawDialog = true;
-                // 스위치를 누른 뒤 5초가 지나서 처음 뜬 창은 이 클릭의 켜기 창이라고 보지 않는다.
+                // 스위치를 누른 뒤 5초가 지나서 처음 뜬 창은 이 클릭의 확인 창이라고 보지 않는다.
                 if (SystemClock.elapsedRealtime() - clickAt > AUTO_CONFIRM_WINDOW_MS) autoEligible = false;
             }
             // 창이 다시 떴으면 취소 유예를 처음부터 센다.
@@ -442,13 +442,18 @@ public class SimTapService extends AccessibilityService {
             List<AccessibilityNodeInfo> cancel = root.findAccessibilityNodeInfosByViewId(BUTTON_CANCEL);
             List<AccessibilityNodeInfo> neutral = root.findAccessibilityNodeInfosByViewId(BUTTON_NEUTRAL);
             // 취소 버튼이 없는 창(「SIM을 끌 수 없음」 등 안내만 하는 창)과 버튼이 3개인 창(최대 개수 창)은 누르지 않는다.
-            if (before == 0 && autoEligible && !confirmClicked && cancel != null && !cancel.isEmpty()
+            // 위젯에서 켜짐 칸을 누른 것이 끄기 의사이므로 끄기 창도 자동 확인한다(2026-10-04 사용자 결정).
+            if ((before == 0 || before == 1) && autoEligible && !confirmClicked && cancel != null && !cancel.isEmpty()
                     && (neutral == null || neutral.isEmpty())) {
+                String dir = before == 0 ? "turn-on" : "turn-off";
                 // 창 제목이 누른 스위치의 SIM 이름을 담을 때만 누른다. 아니면 사용자에게 맡긴다(값 변화로 판정).
-                // 본문이 있는 창도 누르지 않는다. eSIM 테스트 프로필·고정 경고, 다른 SIM 을 끄는 켜기 창은 모두
+                // 켜기: 본문이 있는 창은 누르지 않는다. eSIM 테스트 프로필·고정 경고, 다른 SIM 을 끄는 켜기 창은 모두
                 // 본문이 있고 정상 켜기 창(s6/c0 기본)은 본문이 없다(telephonyui 디컴파일, 실기기 단일 SIM 확인).
                 // 그 본문은 모두 AlertDialog.setMessage 로 들어가 android:id/message 에 그려진다
                 // (테스트 프로필·고정 eSIM c8/i.java, s6 계열 v6/e.java:32,52).
+                // 끄기: 본문을 허용한다. 끄기 창 본문은 데이터가 다른 SIM 으로 넘어감, 다른 SIM 이 없음 같은 끄기의 결과 설명이다.
+                // 두 방향 모두 SIM 관리자가 아닌 Activity 가 앞에 있으면(eSIM 끄기 때의 ResetEsimActivity 같은 초기화 화면) 누르지 않는다.
+                boolean otherActivity = lastWindowClass.endsWith("Activity") && !lastWindowClass.endsWith(SIM_MGR_CLASS_SUFFIX);
                 String title = dialogTitle(root);
                 List<AccessibilityNodeInfo> msg = root.findAccessibilityNodeInfosByViewId("android:id/message");
                 boolean hasBody = false;
@@ -459,13 +464,15 @@ public class SimTapService extends AccessibilityService {
                 // 다른 회선 이름이 대상 이름을 포함하면(「SKT」와 「SKT 업무」) 그 더 긴 이름이 제목에 있을 때 거부한다.
                 boolean longer = false;
                 if (title != null) for (String n : longerNames) if (title.contains(n)) { longer = true; break; }
-                if (targetName.isEmpty() || title == null || !title.contains(targetName) || longer || hasBody) {
+                boolean bodyBlocks = before == 0 && hasBody;
+                if (targetName.isEmpty() || title == null || !title.contains(targetName) || longer || bodyBlocks || otherActivity) {
                     matchedOnce = null;
                     // 제목이나 본문이 아직 그려지지 않았을 수 있다(v0.01.00.09 실기기 title=null). 잠시 뒤 다시 읽는다.
                     if (recheckLeft > 0) { recheckLeft--; handler.removeCallbacks(recheck); handler.postDelayed(recheck, RECHECK_MS); }
                     if (!String.valueOf(title).equals(lastUnmatchedTitle)) {
                         lastUnmatchedTitle = String.valueOf(title);
-                        Log.i(TAG, "turn-on dialog not matched title=" + title + " name=" + targetName + " longer=" + longer + " body=" + hasBody);
+                        Log.i(TAG, dir + " dialog not matched title=" + title + " name=" + targetName + " longer=" + longer
+                                + " body=" + hasBody + " window=" + lastWindowClass);
                     }
                     return;
                 }
@@ -480,7 +487,7 @@ public class SimTapService extends AccessibilityService {
                 }
                 confirmClicked = true;
                 boolean done = ok.get(0).performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                Log.i(TAG, "turn-on confirm click performed=" + done);
+                Log.i(TAG, dir + " confirm click performed=" + done);
                 if (done) markConfirmed("auto");
             }
             return;
