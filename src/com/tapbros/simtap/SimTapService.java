@@ -40,6 +40,7 @@ public class SimTapService extends AccessibilityService {
     static final long SEEK_MS = 8000;
     /** 행을 누른 뒤 값 변화를 기다리는 시간. 끄기 확인은 사용자가 누르므로 넉넉히 둔다. */
     static final long OBSERVE_MS = 30000;
+    static final long SETTLE_MS = 1500;
     /** 스크롤 중에도 내용 변경 이벤트가 이어지므로 스크롤 동작 사이 최소 간격. */
     static final long SCROLL_GAP_MS = 400;
 
@@ -56,6 +57,7 @@ public class SimTapService extends AccessibilityService {
     /** 회선 칸: 누르기 전 값(0/1). */
     private int before = -1;
     private boolean sawDialog;
+    private long clickAt;
     private boolean confirmClicked;
     private long lastScrollAt;
     private String lastWindowClass = "";
@@ -224,6 +226,7 @@ public class SimTapService extends AccessibilityService {
         sawDialog = false;
         confirmClicked = false;
         handler.postDelayed(observeTimeout, OBSERVE_MS);
+        clickAt = SystemClock.elapsedRealtime();
         boolean ok = row.performAction(AccessibilityNodeInfo.ACTION_CLICK);
         Log.i(TAG, "line " + jobSlot + " click before=" + b + " performed=" + ok);
         if (!ok) endJob();
@@ -267,7 +270,10 @@ public class SimTapService extends AccessibilityService {
             }
             return;
         }
-        if (!sawDialog || !atTop || switches.size() <= jobSlot) return;
+        // 클릭 순간의 토글은 밀리초 안에 되돌려진다. 창을 봤거나 클릭 뒤 충분히 지났으면 확인을 거친 변화다.
+        // 끄기 창은 이벤트가 화면 쪽으로만 와서 창을 못 볼 수 있다(v0.01.00.04 실기기).
+        boolean settled = sawDialog || SystemClock.elapsedRealtime() - clickAt >= SETTLE_MS;
+        if (!settled || !atTop || switches.size() <= jobSlot) return;
         int now = switches.get(jobSlot).isChecked() ? 1 : 0;
         if (now != before) {
             Log.i(TAG, "line " + jobSlot + " changed " + before + " -> " + now);
