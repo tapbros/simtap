@@ -173,6 +173,7 @@ public class SimTapService extends AccessibilityService {
         handler.removeCallbacks(seekTimeout);
         handler.removeCallbacks(observeTimeout);
         handler.removeCallbacks(recheck);
+        handler.removeCallbacks(reevaluate);
         matchedOnce = null;
         recheckLeft = 0;
     }
@@ -192,6 +193,15 @@ public class SimTapService extends AccessibilityService {
         if (e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && e.getClassName() != null) {
             lastWindowClass = e.getClassName().toString();
         }
+        evaluate();
+    }
+
+    /** 스크롤 뒤에는 이벤트가 더 오지 않을 수 있어(v0.01.00.12 실기기, 커버 화면) 잠시 뒤 화면을 다시 읽는다. */
+    private final Runnable reevaluate = new Runnable() {
+        @Override public void run() { if (phase != IDLE) evaluate(); }
+    };
+
+    private void evaluate() {
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null || !PKG.equals(String.valueOf(root.getPackageName()))) return;
 
@@ -377,6 +387,8 @@ public class SimTapService extends AccessibilityService {
         lastScrollAt = now;
         Log.i(TAG, "scroll " + (action == AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD ? "up" : "down")
                 + " performed=" + node.performAction(action));
+        handler.removeCallbacks(reevaluate);
+        handler.postDelayed(reevaluate, SCROLL_GAP_MS + 100);
     }
 
     private void toastMissing(int slot) {

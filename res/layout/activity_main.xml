@@ -58,12 +58,11 @@
             android:layout_marginTop="8dp"
             android:text="@string/btn_app_info" />
 
-        <Button
-            android:id="@+id/btn_pin_widget"
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:text="@string/btn_pin_widget" />
+            android:text="@string/widget_add_hint" />
 
         <Button
             android:id="@+id/btn_read_state"

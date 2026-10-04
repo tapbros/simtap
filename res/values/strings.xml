@@ -20,8 +20,7 @@
     <string name="restricted_title">If accessibility is greyed out</string>
     <string name="restricted_body">On Android 13 and later, apps installed from outside an app store are blocked from accessibility until you allow them. Open App info, tap ⋮ at the top right, tap Allow restricted settings and verify. Then turn on SimTap in Accessibility.</string>
     <string name="btn_app_info">Open App info</string>
-    <string name="btn_pin_widget">Add widget to home screen</string>
-    <string name="toast_pin_unsupported">This home screen cannot add widgets directly. Long-press an empty area of the home screen and pick SimTap in Widgets.</string>
+    <string name="widget_add_hint">To add the widget, long-press an empty area of the home screen, open Widgets > SimTap and place it where you want.</string>
     <string name="btn_read_state">Read current state</string>
     <string name="read_state_hint">Opens the SIM manager screen without tapping anything so the widget can show SIM names and states. Go back when it opens.</string>
     <string name="toast_no_app">No app can open this screen.</string>
