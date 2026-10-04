@@ -29,8 +29,9 @@ public class SimTapService extends AccessibilityService {
     static final String TAG = "SimTap";
     static final String PKG = "com.samsung.android.app.telephonyui";
     static final String SWITCH_ID = PKG + ":id/on_off_switch";
-    static final String TITLE_ID = PKG + ":id/title";
-    static final String SUMMARY_ID = PKG + ":id/summary";
+    /** 설정 행의 제목과 요약. One UI 9.0 Fold8 의 「모바일 데이터」 행은 android 쪽 id 를 쓴다(실기기 덤프). */
+    static final String[] TITLE_IDS = { "android:id/title", PKG + ":id/title" };
+    static final String[] SUMMARY_IDS = { "android:id/summary", PKG + ":id/summary" };
     static final String BUTTON_OK = "android:id/button1";
     static final String BUTTON_CANCEL = "android:id/button2";
     /** AppCompat 창 제목은 앱 쪽 id 다(실기기 덤프 com.samsung.android.app.telephonyui:id/alertTitle). 프레임워크 창 대비로 android id 도 본다. */
@@ -388,7 +389,12 @@ public class SimTapService extends AccessibilityService {
     private void scroll(AccessibilityNodeInfo node, int action) {
         if (node == null) return;
         long now = SystemClock.elapsedRealtime();
-        if (now - lastScrollAt < SCROLL_GAP_MS) return;
+        if (now - lastScrollAt < SCROLL_GAP_MS) {
+            // 간격 제한으로 건너뛴 스크롤도 이벤트가 더 오지 않으면 멈추므로 간격이 지난 뒤 다시 읽는다.
+            handler.removeCallbacks(reevaluate);
+            handler.postDelayed(reevaluate, SCROLL_GAP_MS - (now - lastScrollAt) + 100);
+            return;
+        }
         lastScrollAt = now;
         Log.i(TAG, "scroll " + (action == AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD ? "up" : "down")
                 + " performed=" + node.performAction(action));
@@ -422,13 +428,15 @@ public class SimTapService extends AccessibilityService {
 
     /** 「주 사용 SIM 카드」 아래 「모바일 데이터」 행의 제목. summary 가 붙은 것만 데이터 행으로 본다. */
     private static AccessibilityNodeInfo dataTitle(AccessibilityNodeInfo root) {
-        List<AccessibilityNodeInfo> titles = root.findAccessibilityNodeInfosByViewId(TITLE_ID);
-        if (titles == null) return null;
-        for (AccessibilityNodeInfo t : titles) {
-            CharSequence c = t.getText();
-            if (c == null) continue;
-            String s = c.toString().trim();
-            if ((s.equals("모바일 데이터") || s.equalsIgnoreCase("Mobile data")) && summaryOf(t) != null) return t;
+        for (String id : TITLE_IDS) {
+            List<AccessibilityNodeInfo> titles = root.findAccessibilityNodeInfosByViewId(id);
+            if (titles == null) continue;
+            for (AccessibilityNodeInfo t : titles) {
+                CharSequence c = t.getText();
+                if (c == null) continue;
+                String s = c.toString().trim();
+                if ((s.equals("모바일 데이터") || s.equalsIgnoreCase("Mobile data")) && summaryOf(t) != null) return t;
+            }
         }
         return null;
     }
@@ -454,8 +462,10 @@ public class SimTapService extends AccessibilityService {
     private static AccessibilityNodeInfo summaryOf(AccessibilityNodeInfo title) {
         AccessibilityNodeInfo n = title.getParent();
         for (int up = 0; up < 2 && n != null && !n.isScrollable(); up++, n = n.getParent()) {
-            List<AccessibilityNodeInfo> s = n.findAccessibilityNodeInfosByViewId(SUMMARY_ID);
-            if (s != null && !s.isEmpty()) return s.get(0);
+            for (String id : SUMMARY_IDS) {
+                List<AccessibilityNodeInfo> s = n.findAccessibilityNodeInfosByViewId(id);
+                if (s != null && !s.isEmpty()) return s.get(0);
+            }
         }
         return null;
     }
