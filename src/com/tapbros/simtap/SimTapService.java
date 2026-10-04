@@ -171,7 +171,7 @@ public class SimTapService extends AccessibilityService {
             if (jobSlot == SimTapWidget.SLOT_DATA) seekData(dataTitle, scroll, atTop, atEnd);
             else seekLine(switches, dataTitle, scroll, atTop, atEnd);
         } else if (phase == OBSERVE) {
-            observe(root, switches, atTop);
+            observe(root, switches, scroll, atTop);
         }
     }
 
@@ -255,7 +255,8 @@ public class SimTapService extends AccessibilityService {
      * 확인 창이 뜨면 활성 창에 회선 스위치가 없다. 켜기 방향만 확인 버튼을 한 번 누르고 끄기는 사용자에게 맡긴다.
      * 화면으로 돌아와 값이 바뀌었으면(확인 뒤 SIM 작업이 끝난 것) 홈으로 간다.
      */
-    private void observe(AccessibilityNodeInfo root, List<AccessibilityNodeInfo> switches, boolean atTop) {
+    private void observe(AccessibilityNodeInfo root, List<AccessibilityNodeInfo> switches,
+                         AccessibilityNodeInfo scroll, boolean atTop) {
         if (switches.isEmpty()) {
             // 확인 창이든 진행 창이든 스위치가 가려진 창을 봤으면 클릭 직후의 순간 토글이 아니다.
             // 끄기 창은 뜨는 순간 이벤트가 화면 쪽으로 잡혀 확인 버튼을 못 볼 수 있다(v0.01.00.01 실기기).
@@ -273,7 +274,10 @@ public class SimTapService extends AccessibilityService {
         // 클릭 순간의 토글은 밀리초 안에 되돌려진다. 창을 봤거나 클릭 뒤 충분히 지났으면 확인을 거친 변화다.
         // 끄기 창은 이벤트가 화면 쪽으로만 와서 창을 못 볼 수 있다(v0.01.00.04 실기기).
         boolean settled = sawDialog || SystemClock.elapsedRealtime() - clickAt >= SETTLE_MS;
-        if (!settled || !atTop || switches.size() <= jobSlot) return;
+        if (!settled) return;
+        // SIM 을 끄면 화면 구성이 바뀌며 목록이 맨 위에서 밀릴 수 있다. 맨 위로 올리고 다음 이벤트에서 다시 본다.
+        if (!atTop) { Log.i(TAG, "observe: not at top, scroll up"); scroll(scroll, AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD); return; }
+        if (switches.size() <= jobSlot) { Log.i(TAG, "observe: switches=" + switches.size()); return; }
         int now = switches.get(jobSlot).isChecked() ? 1 : 0;
         if (now != before) {
             Log.i(TAG, "line " + jobSlot + " changed " + before + " -> " + now);
