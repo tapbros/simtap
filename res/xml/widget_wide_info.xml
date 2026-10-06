@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 5x1 패널. minWidth 320dp = 5칸 기본(70n-30). 가로로만 줄이고 늘린다. 4칸(250dp) 아래로는 칸 이름이 잘려 막는다.
+     회선과 데이터 SIM 칸은 캐시를 그리고 와이파이·데이터 칸은 값이 바뀔 때 서비스가 다시 그리므로 주기 갱신이 필요 없다. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="320dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="250dp"
+    android:minResizeHeight="40dp"
+    android:targetCellWidth="5"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget_wide"
+    android:previewLayout="@layout/widget_wide_preview"
+    android:description="@string/widget_wide_desc"
+    android:resizeMode="horizontal"
+    android:widgetCategory="home_screen" />

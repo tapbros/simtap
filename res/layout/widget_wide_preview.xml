@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 위젯 고르기 화면의 미리보기(API 31+, widget_info.xml previewLayout). 칸 3개를 켜짐·켜짐·데이터 SIM 예시로 고정해 그린다(데이터 SIM 칸은 두 회선이 켜져 있을 때 이 색이다). -->
+<!-- 5x1 위젯의 미리보기(API 31+, widget_wide_info.xml previewLayout). 칸 5개를 켜짐·켜짐·와이파이 켜짐·데이터 켜짐·데이터 SIM 예시로 고정해 그린다. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -12,8 +12,8 @@
         android:background="@drawable/bg_on"
         android:gravity="center_vertical"
         android:orientation="vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="8dp">
+        android:paddingStart="8dp"
+        android:paddingEnd="6dp">
 
         <TextView
             android:layout_width="match_parent"
@@ -49,8 +49,8 @@
         android:background="@drawable/bg_on"
         android:gravity="center_vertical"
         android:orientation="vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="8dp">
+        android:paddingStart="8dp"
+        android:paddingEnd="6dp">
 
         <TextView
             android:layout_width="match_parent"
@@ -83,11 +83,85 @@
         android:layout_height="match_parent"
         android:layout_weight="1"
         android:layout_marginStart="4dp"
+        android:background="@drawable/bg_on"
+        android:gravity="center_vertical"
+        android:orientation="vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="6dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/wifi_label"
+            android:textColor="#B3FFFFFF"
+            android:textSize="11sp"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="9sp"
+            android:autoSizeMaxTextSize="11sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/state_on"
+            android:textColor="#FFFFFFFF"
+            android:textSize="15sp"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="9sp"
+            android:autoSizeMaxTextSize="15sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:layout_marginStart="4dp"
+        android:background="@drawable/bg_on"
+        android:gravity="center_vertical"
+        android:orientation="vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="6dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/mobile_label"
+            android:textColor="#B3FFFFFF"
+            android:textSize="11sp"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="9sp"
+            android:autoSizeMaxTextSize="11sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/state_on"
+            android:textColor="#FFFFFFFF"
+            android:textSize="15sp"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="9sp"
+            android:autoSizeMaxTextSize="15sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:layout_marginStart="4dp"
         android:background="@drawable/bg_data"
         android:gravity="center_vertical"
         android:orientation="vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="8dp">
+        android:paddingStart="8dp"
+        android:paddingEnd="6dp">
 
         <TextView
             android:layout_width="match_parent"

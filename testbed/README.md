@@ -26,7 +26,7 @@
 | prefix_name | SKT, SKT eSIM 모두 꺼짐 | SKT 켜기 | SKT 만 켜짐 |
 | danger_on | 켜기 창에 「다른 SIM 이 꺼집니다」 본문 | SKT 켜기 | 자동 확인 거부(body=true) |
 | psim2 | 유심 두 장 SKT + KT | KT 끄기·켜기 | KT 만 바뀜 |
-| psim_esim | 두 회선 켜짐 | 데이터 칸 | 데이터 SIM 선택 화면 열림 |
+| psim_esim | 두 회선 켜짐 | 데이터 SIM 칸 | 데이터 SIM 선택 화면 열림 |
 
 가짜 앱의 최대 개수 창 본문, 위험 창 인자 채우기 규칙, 지연 시간(eSIM 6초, 그 외 2초)은 시험용으로 정한 값이다.
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Renders README preview PNGs of the SimTap home screen widget (English and Korean)
-# by reproducing res/layout/widget.xml as HTML and taking headless Chrome screenshots.
+# by reproducing res/layout/widget.xml and res/layout/widget_wide.xml as HTML and taking headless Chrome screenshots.
 # Colors, radius, paddings, text sizes, strings and the launcher icon (adaptive icon
 # background color + res/drawable/ic_launcher_fg.xml) are parsed from the resource XML
 # at run time, so the images follow resource changes. Cell visibility, background and
@@ -9,7 +9,9 @@
 # Output: docs/widget_states.png (res/values) and docs/widget_states.ko.png (res/values-ko)
 #
 # Assumptions (not taken from resources):
-#   - widget size 320x80 dp (a 4x1 cell; real size depends on the launcher grid)
+#   - 4x1 widget size 320x80 dp and 5x1 widget size 400x80 dp (real sizes depend on the launcher grid)
+#   - the 5x1 row shows Wi-Fi and Data as On; on a device they show Open when the value cannot be read
+#   - autoSize is approximated: text that does not fit shrinks in 1 px steps down to autoSizeMinTextSize, then ellipsizes
 #   - 1 dp = 1 sp = 1 CSS px, rendered at device scale factor 3
 #   - example SIM names "SKT", "KT eSIM" and data SIM "SKT" (real names come from the SIM manager screen)
 #   - "SIM 1" is sim_default with %1$d = 1, used for the single SIM and first install rows
@@ -68,29 +70,36 @@ inset = vw * 18 / 108
 ICON = (f'<svg viewBox="{inset:g} {inset:g} {vw - 2 * inset:g} {vw - 2 * inset:g}" width="100%" height="100%">'
         f'<rect x="{inset:g}" y="{inset:g}" width="{vw - 2 * inset:g}" height="{vw - 2 * inset:g}" fill="{icon_bg}"/>{paths}</svg>')
 
-# Layout values from res/layout/widget.xml (all three cells share these attributes)
-lay = ET.parse(f'{root}/res/layout/widget.xml').getroot()
-ids = {e.get(A + 'id').split('/')[-1]: e for e in lay.iter() if e.get(A + 'id')}
-c0, c1, n0, s0 = ids['cell0'], ids['cell1'], ids['name0'], ids['state0']
-L = dict(
-    ps=dp(c0.get(A + 'paddingStart')), pe=dp(c0.get(A + 'paddingEnd')),
-    gap=dp(c1.get(A + 'layout_marginStart')),
-    n_sz=dp(n0.get(A + 'textSize')), n_col=color(n0.get(A + 'textColor')),
-    s_sz=dp(s0.get(A + 'textSize')), s_col=color(s0.get(A + 'textColor')),
-    s_w='700' if s0.get(A + 'textStyle') == 'bold' else '400',
-)
+# Layout values from res/layout/<name>.xml (all cells of one layout share these attributes)
+def layout(name):
+    lay = ET.parse(f'{root}/res/layout/{name}.xml').getroot()
+    ids = {e.get(A + 'id').split('/')[-1]: e for e in lay.iter() if e.get(A + 'id')}
+    c0, c1, n0, s0 = ids['cell0'], ids['cell1'], ids['name0'], ids['state0']
+    return dict(
+        ps=dp(c0.get(A + 'paddingStart')), pe=dp(c0.get(A + 'paddingEnd')),
+        gap=dp(c1.get(A + 'layout_marginStart')),
+        n_sz=dp(n0.get(A + 'textSize')), n_col=color(n0.get(A + 'textColor')),
+        s_sz=dp(s0.get(A + 'textSize')), s_col=color(s0.get(A + 'textColor')),
+        s_w='700' if s0.get(A + 'textStyle') == 'bold' else '400',
+        n_min=dp(n0.get(A + 'autoSizeMinTextSize')), s_min=dp(s0.get(A + 'autoSizeMinTextSize')),
+    )
+
+L, LW = layout('widget'), layout('widget_wide')
+# the two layouts differ only in cell padding; the shared CSS below takes the rest from widget.xml
+assert {k: v for k, v in L.items() if k not in ('ps', 'pe')} == {k: v for k, v in LW.items() if k not in ('ps', 'pe')}
 
 W, H = 320, 80          # 4x1 widget (assumption, see header)
+W5 = 400                # 5x1 widget (assumption, see header)
 HEAD, HEAD_MB = 24, 12  # header: app icon + app name
 CAP_MT, CAP_H, ROW_GAP = 6, 16, 14
 FOOT_MT, FOOT_H = 10, 14
 PAD = 4                 # transparent margin around the sheet
-SW = 360                # sheet width: the 320 dp widget plus room for the one-line footnote
+SW = W5 + 40            # sheet width: the 400 dp 5x1 widget plus the same side room the 4x1 sheet had
 
 TEXT = {
-    '': dict(dual='Dual SIM', dual_off='Dual SIM, one line off', single='Single SIM', first='Before the first read',
+    '': dict(wide='5x1 widget', dual='Dual SIM', dual_off='Dual SIM, one line off', single='Single SIM', first='Before the first read',
              foot='Example · drawn from the app layout, not a device screenshot'),
-    'ko': dict(dual='듀얼 SIM', dual_off='듀얼 SIM, 회선 하나 꺼짐', single='단일 SIM', first='처음 설치(상태 읽기 전)',
+    'ko': dict(wide='5x1 위젯', dual='듀얼 SIM', dual_off='듀얼 SIM, 회선 하나 꺼짐', single='단일 SIM', first='처음 설치(상태 읽기 전)',
                foot='예시 화면 · 앱 레이아웃으로 그린 미리보기이며 실제 기기 화면이 아닙니다'),
 }
 
@@ -107,6 +116,8 @@ body{{font-family:-apple-system,"Apple SD Gothic Neo","Helvetica Neue","Noto San
 .item+.item{{margin-top:{ROW_GAP}px;}}
 .item{{display:flex;flex-direction:column;align-items:center;}}
 .w{{width:{W}px;height:{H}px;display:flex;flex-direction:row;}}
+.w.wide{{width:{W5}px;}}
+.w.wide .c{{padding:0 {LW["pe"]}px 0 {LW["ps"]}px;}}
 .c{{flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:center;
   padding:0 {L["pe"]}px 0 {L["ps"]}px;}}
 .c+.c{{margin-left:{L["gap"]}px;}}
@@ -120,7 +131,12 @@ body{{font-family:-apple-system,"Apple SD Gothic Neo","Helvetica Neue","Noto San
 def cell(name, state, bgname):
     c, r = bg(bgname)
     return (f'<div class="c" style="background:{c};border-radius:{r}px">'
-            f'<div class="n">{html.escape(name)}</div><div class="s">{html.escape(state)}</div></div>')
+            f'<div class="n" data-min="{L["n_min"]:g}">{html.escape(name)}</div>'
+            f'<div class="s" data-min="{L["s_min"]:g}">{html.escape(state)}</div></div>')
+
+# autoSizeTextType="uniform" stand-in (see header): shrink a line that overflows its cell, not below its minimum size
+FIT = ('<script>for(const e of document.querySelectorAll("[data-min]")){let z=parseFloat(getComputedStyle(e).fontSize);'
+       'while(e.scrollWidth>e.clientWidth&&z-1>=+e.dataset.min){z-=1;e.style.fontSize=z+"px";}}</script>')
 
 for lang, suffix in (('', ''), ('ko', '.ko')):
     s = res(f'values{"-" + lang if lang else ""}/strings.xml')
@@ -128,20 +144,24 @@ for lang, suffix in (('', ''), ('ko', '.ko')):
     sim1 = s['sim_default'].replace('%1$d', '1')
     # Rows mirror SimTapWidget.build(): GONE cells are omitted, so a single visible cell takes the full width
     rows = [
+        # 5x1 (SimTapWideWidget): screen order is line 1, line 2, Wi-Fi, Data, Data SIM
+        (t['wide'], [('SKT', s['state_on'], 'bg_on'), ('KT eSIM', s['state_on'], 'bg_on'),
+                     (s['wifi_label'], s['state_on'], 'bg_on'), (s['mobile_label'], s['state_on'], 'bg_on'),
+                     (s['data_label'], 'SKT', 'bg_data')]),
         (t['dual'], [('SKT', s['state_on'], 'bg_on'), ('KT eSIM', s['state_on'], 'bg_on'),
                      (s['data_label'], 'SKT', 'bg_data')]),
-        # with fewer than two lines on, the data cell stays but is dimmed (SimTapWidget.build())
+        # with fewer than two lines on, the data SIM cell stays but is dimmed (SimTapWidget.build())
         (t['dual_off'], [('SKT', s['state_on'], 'bg_on'), ('KT eSIM', s['state_off'], 'bg_off'),
                          (s['data_label'], s['state_need_two'], 'bg_unknown')]),
         (t['single'], [(sim1, s['state_on'], 'bg_on')]),
         (t['first'], [(sim1, s['state_tap_to_read'], 'bg_unknown')]),
     ]
-    items = ''.join(f'<div class="item"><div class="w">{"".join(cell(*c) for c in cells)}</div>'
+    items = ''.join(f'<div class="item"><div class="w{" wide" if len(cells) == 5 else ""}">{"".join(cell(*c) for c in cells)}</div>'
                     f'<div class="cap">{html.escape(cap)}</div></div>' for cap, cells in rows)
     head = f'<div class="head"><div class="ai">{ICON}</div><span>{html.escape(s["app_name"])}</span></div>'
     body = f'<div class="sheet">{head}{items}<div class="foot">{html.escape(t["foot"])}</div></div>'
     open(f'{out}/states{suffix}.html', 'w').write(
-        f'<!doctype html><html><head><meta charset="utf-8"><style>{CSS}</style></head><body>{body}</body></html>')
+        f'<!doctype html><html><head><meta charset="utf-8"><style>{CSS}</style></head><body>{body}{FIT}</body></html>')
 
 h = 2 * PAD + HEAD + HEAD_MB + len(rows) * (H + CAP_MT + CAP_H) + (len(rows) - 1) * ROW_GAP + FOOT_MT + FOOT_H
 open(f'{out}/sizes', 'w').write(f'{SW},{h}\n')

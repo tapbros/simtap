@@ -32,6 +32,20 @@
                 android:resource="@xml/widget_info" />
         </receiver>
 
+        <!-- 5x1: 같은 칸에 와이파이·데이터 칸을 더한 위젯. 그 두 칸은 시스템 패널을 열 뿐이라 권한이 필요 없다. -->
+        <receiver
+            android:name=".SimTapWideWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_wide_info" />
+        </receiver>
+
         <!-- taskAffinity="" 로 앱 작업(MainActivity)과 섞이지 않게 한다. -->
         <activity
             android:name=".TrampolineActivity"

@@ -3,10 +3,12 @@ package com.tapbros.simtap;
 import android.accessibilityservice.AccessibilityService;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.database.ContentObserver;
 import android.graphics.Rect;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -25,6 +27,7 @@ import java.util.List;
  * 2) 위젯 칸이 arm 한 뒤에만 그 칸의 행을 한 번 누른다. 회선은 화면 순번이 아니라 탭할 때 위젯이 보인 SIM 이름으로
  *    찾는다. 유심이 없으면 화면 0번째 스위치가 eSIM 일 수 있기 때문이다. arm 은 첫 이벤트에서 메모리 작업으로 옮기고 바로 지우므로
  *    스크롤이나 클릭이 다시 부르는 이벤트가 같은 arm 으로 또 누르지 않는다.
+ * 3) 5x1 위젯의 와이파이·데이터 칸은 누르지 않는다. 그 값(Settings.Global)이 바뀔 때 위젯을 다시 그리기만 한다.
  */
 public class SimTapService extends AccessibilityService {
     static final String TAG = "SimTap";
@@ -65,7 +68,7 @@ public class SimTapService extends AccessibilityService {
     private int phase = IDLE;
     private int jobSlot = -1;
     private int jobWidget;
-    /** 데이터 칸: 맨 위까지 올린 뒤 아래로 찾는다. */
+    /** 데이터 SIM 칸: 맨 위까지 올린 뒤 아래로 찾는다. */
     private boolean reachedTop;
     /** 회선 칸: 누르기 전 값(0/1). */
     private int before = -1;
@@ -126,6 +129,11 @@ public class SimTapService extends AccessibilityService {
         @Override public void run() {
             if (phase == OBSERVE) { Log.i(TAG, "observe timeout, no change"); endJob(); }
         }
+    };
+
+    /** 5x1 위젯의 와이파이·데이터 칸이 보이는 값이 바뀌면 위젯을 다시 그린다. 서비스가 붙어 있는 동안만 건다. */
+    private final ContentObserver netObserver = new ContentObserver(handler) {
+        @Override public void onChange(boolean self) { SimTapWidget.refresh(SimTapService.this); }
     };
 
     static boolean isRunning() { return instance != null; }
@@ -231,12 +239,28 @@ public class SimTapService extends AccessibilityService {
         instance = this;
         // 서비스가 새로 붙기 전(재부팅, 재설치)에 남은 arm 은 지금 탭이 아니다.
         disarm(this);
+        try {
+            for (String key : NetState.KEYS) {
+                getContentResolver().registerContentObserver(Settings.Global.getUriFor(key), false, netObserver);
+            }
+        } catch (RuntimeException e) {
+            Log.i(TAG, "net observer not registered: " + e);
+        }
         // 강제 중지 뒤에는 위젯 버튼이 무효가 된다. 서비스가 다시 붙을 때 새 버튼으로 다시 그린다(v0.01.00.17 실기기).
         SimTapWidget.refresh(this);
     }
 
     @Override
-    public boolean onUnbind(android.content.Intent i) { endJob(); instance = null; return super.onUnbind(i); }
+    public boolean onUnbind(android.content.Intent i) { stop(); return super.onUnbind(i); }
+
+    /** 서비스가 떨어지면 와이파이·데이터 값이 낡으므로 그 칸을 「열기」로 다시 그린다(SimTapWidget.build). */
+    private void stop() {
+        endJob();
+        getContentResolver().unregisterContentObserver(netObserver);
+        if (instance != this) return;
+        instance = null;
+        SimTapWidget.refresh(this);
+    }
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent e) {
@@ -315,8 +339,10 @@ public class SimTapService extends AccessibilityService {
             CharSequence s = summary != null ? summary.getText() : null;
             // 행이 있다는 것만 저장한다. 회선을 바꾼 직후에는 행이 잠시 disabled 이고 observe() 는 스위치 값이 바뀌면
             // 바로 홈으로 나가므로 enabled 로 돌아오는 것을 보지 못한다(S25 One UI 8.5 제보). 누를 수 있는지는 seekData 가 본다.
-            changed |= SimCache.saveData(this, true, s != null ? s.toString() : "");
+            // 이름은 행이 enabled 일 때의 요약만 쓴다. disabled 인 동안의 요약은 자리표시자 문구일 수 있어 빈 값을 넘겨 기존 이름을 둔다.
+            changed |= SimCache.saveData(this, true, dataTitle.isEnabled() && s != null ? s.toString() : "");
         } else if (!switches.isEmpty() && atTop && atEnd) {
+            // 제목이 summary 유무와 무관하게 화면에 없을 때만 온다(dataTitle).
             changed |= SimCache.saveData(this, false, "");
         }
         if (changed) {
@@ -592,8 +618,12 @@ public class SimTapService extends AccessibilityService {
         return r.top;
     }
 
-    /** 「주 사용 SIM 카드」 아래 「모바일 데이터」 행의 제목. summary 가 붙은 것만 데이터 행으로 본다. */
+    /**
+     * 「주 사용 SIM 카드」 아래 「모바일 데이터」 행의 제목. 행이 있는지는 제목 글자만으로 본다. disabled 행이 summary 를
+     * 잃는 기종에서도 행은 있는 것이다(S25 One UI 8.5 대비, 실기기 미확인). 같은 제목이 여럿이면 summary 가 붙은 것을 먼저 고른다.
+     */
     private static AccessibilityNodeInfo dataTitle(AccessibilityNodeInfo root) {
+        AccessibilityNodeInfo bare = null;
         for (String id : TITLE_IDS) {
             List<AccessibilityNodeInfo> titles = root.findAccessibilityNodeInfosByViewId(id);
             if (titles == null) continue;
@@ -601,10 +631,12 @@ public class SimTapService extends AccessibilityService {
                 CharSequence c = t.getText();
                 if (c == null) continue;
                 String s = c.toString().trim();
-                if ((s.equals("모바일 데이터") || s.equalsIgnoreCase("Mobile data")) && summaryOf(t) != null) return t;
+                if (!s.equals("모바일 데이터") && !s.equalsIgnoreCase("Mobile data")) continue;
+                if (summaryOf(t) != null) return t;
+                if (bare == null) bare = t;
             }
         }
-        return null;
+        return bare;
     }
 
     /** 확인 창 제목에서 방향 제어 문자를 뺀 값. 제목이 없으면 null. */
@@ -707,5 +739,5 @@ public class SimTapService extends AccessibilityService {
     public void onInterrupt() { endJob(); }
 
     @Override
-    public void onDestroy() { endJob(); instance = null; super.onDestroy(); }
+    public void onDestroy() { stop(); super.onDestroy(); }
 }

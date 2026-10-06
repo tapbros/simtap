@@ -4,11 +4,16 @@ import android.app.Activity;
 import android.appwidget.AppWidgetManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.widget.Toast;
 
-/** 위젯 칸 탭을 받아 arm(위젯 id, 칸, 목표값, SIM 이름, 시각)을 기록하고 SIM 관리자 화면을 연 뒤 바로 끝난다. */
+/**
+ * 위젯 칸 탭을 받아 arm(위젯 id, 칸, 목표값, SIM 이름, 시각)을 기록하고 SIM 관리자 화면을 연 뒤 바로 끝난다.
+ * 5x1 위젯의 와이파이·데이터 칸은 arm 없이 시스템 패널만 연다. 일반 앱은 둘 다 직접 바꾸지 못한다.
+ */
 public class TrampolineActivity extends Activity {
     static final String PREFS = "arm";
     static final String ARMED_AT = "armedAt";
@@ -35,6 +40,12 @@ public class TrampolineActivity extends Activity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         int slot = getIntent().getIntExtra(EXTRA_SLOT, -1);
+        if (slot == SimTapWidget.SLOT_WIFI || slot == SimTapWidget.SLOT_MOBILE) {
+            // 접근성 서비스가 꺼져 있어도 열린다.
+            openPanel(slot == SimTapWidget.SLOT_WIFI);
+            finish();
+            return;
+        }
         if (slot < 0 || slot > SimTapWidget.SLOT_DATA) { finish(); return; }
         if (!SimTapService.isRunning()) {
             Toast.makeText(this, R.string.toast_service_off, Toast.LENGTH_SHORT).show();
@@ -79,5 +90,23 @@ public class TrampolineActivity extends Activity {
             Toast.makeText(this, R.string.toast_open_fail, Toast.LENGTH_LONG).show();
         }
         finish();
+    }
+
+    /** 와이파이 또는 인터넷 연결 패널(API 29+). 그 아래 버전이거나 패널이 없으면 해당 설정 화면. 둘 다 없으면 토스트. */
+    private void openPanel(boolean wifi) {
+        String[] actions = {
+                Build.VERSION.SDK_INT < 29 ? null
+                        : wifi ? Settings.Panel.ACTION_WIFI : Settings.Panel.ACTION_INTERNET_CONNECTIVITY,
+                wifi ? Settings.ACTION_WIFI_SETTINGS : Settings.ACTION_DATA_USAGE_SETTINGS };
+        for (String a : actions) {
+            if (a == null) continue;
+            try {
+                startActivity(new Intent(a));
+                return;
+            } catch (ActivityNotFoundException | SecurityException e) {
+                // 다음 후보로 넘어간다.
+            }
+        }
+        Toast.makeText(this, R.string.toast_no_app, Toast.LENGTH_LONG).show();
     }
 }

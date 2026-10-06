@@ -46,7 +46,7 @@ final class SimCache {
         return p.contains(DATA_PRESENT) ? p.getBoolean(DATA_PRESENT, false) : p.getBoolean(DATA_SHOWN, false);
     }
 
-    /** 위젯이 데이터 칸을 보이는 조건. 단일 SIM 에도 데이터 행은 있으므로 회선 수도 본다. */
+    /** 위젯이 데이터 SIM 칸을 보이는 조건. 단일 SIM 에도 데이터 행은 있으므로 회선 수도 본다. */
     static boolean dataCell(Context ctx) { return dataPresent(ctx) && lineCount(ctx) >= 2; }
 
     static String dataName(Context ctx) { return prefs(ctx).getString(DATA_NAME, ""); }

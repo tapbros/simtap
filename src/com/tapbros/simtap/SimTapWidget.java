@@ -16,13 +16,20 @@ import android.widget.RemoteViews;
 /**
  * 4x1 패널. 칸 0 = SIM 1 회선, 칸 1 = SIM 2 회선, 칸 2 = 데이터 SIM.
  * 서비스가 화면에서 그 행을 본 적이 있어야 칸을 보인다. 캐시가 없으면 SIM 1 칸만 「눌러서 읽기」로 보인다.
- * 데이터 칸은 회선이 2개 이상일 때 보이고 켜진 회선이 2개 미만이면 흐리게 「SIM 2개 필요」로 그린다.
+ * 데이터 SIM 칸은 회선이 2개 이상일 때 보이고 켜진 회선이 2개 미만이면 흐리게 「SIM 2개 필요」로 그린다.
+ * 5x1 패널(SimTapWideWidget)은 같은 칸에 칸 3 = 와이파이, 칸 4 = 모바일 데이터를 더한다. 화면 순서는 0, 1, 3, 4, 2 다.
+ * 칸 3·4 는 항상 보이고 누르면 시스템 패널을 연다(TrampolineActivity). 접근성 서비스를 쓰지 않는다.
  */
 public class SimTapWidget extends AppWidgetProvider {
     static final int SLOT_DATA = 2;
-    private static final int[] CELL = { R.id.cell0, R.id.cell1, R.id.cell2 };
-    private static final int[] NAME = { R.id.name0, R.id.name1, R.id.name2 };
-    private static final int[] STATE = { R.id.state0, R.id.state1, R.id.state2 };
+    static final int SLOT_WIFI = 3;
+    static final int SLOT_MOBILE = 4;
+    private static final int[] CELL = { R.id.cell0, R.id.cell1, R.id.cell2, R.id.cell3, R.id.cell4 };
+    private static final int[] NAME = { R.id.name0, R.id.name1, R.id.name2, R.id.name3, R.id.name4 };
+    private static final int[] STATE = { R.id.state0, R.id.state1, R.id.state2, R.id.state3, R.id.state4 };
+
+    /** 이 provider 의 레이아웃. SimTapWideWidget 이 5x1 로 바꾼다. */
+    int layout() { return R.layout.widget; }
 
     @Override
     public void onReceive(Context ctx, Intent intent) {
@@ -40,7 +47,7 @@ public class SimTapWidget extends AppWidgetProvider {
 
     @Override
     public void onUpdate(Context ctx, AppWidgetManager mgr, int[] ids) {
-        for (int id : ids) mgr.updateAppWidget(id, build(ctx, id));
+        for (int id : ids) mgr.updateAppWidget(id, build(ctx, id, layout()));
     }
 
     /**
@@ -50,7 +57,7 @@ public class SimTapWidget extends AppWidgetProvider {
     @Override
     public void onAppWidgetOptionsChanged(Context ctx, AppWidgetManager mgr, int id, android.os.Bundle opts) {
         Log.i("SimTap", "options changed widget=" + id);
-        mgr.updateAppWidget(id, build(ctx, id));
+        mgr.updateAppWidget(id, build(ctx, id, layout()));
     }
 
     /** 위젯을 지우면 그 위젯 id 로 남은 arm 기록을 지운다. 위젯별로 저장하는 다른 값은 없다. */
@@ -59,15 +66,25 @@ public class SimTapWidget extends AppWidgetProvider {
         SimTapService.forgetWidgets(ctx, ids);
     }
 
+    /** 두 provider(4x1, 5x1)의 위젯을 모두 다시 그린다. */
     static void refresh(Context ctx) {
         AppWidgetManager mgr = AppWidgetManager.getInstance(ctx);
         for (int id : mgr.getAppWidgetIds(new ComponentName(ctx, SimTapWidget.class))) {
-            mgr.updateAppWidget(id, build(ctx, id));
+            mgr.updateAppWidget(id, build(ctx, id, R.layout.widget));
+        }
+        for (int id : mgr.getAppWidgetIds(new ComponentName(ctx, SimTapWideWidget.class))) {
+            mgr.updateAppWidget(id, build(ctx, id, R.layout.widget_wide));
         }
     }
 
-    private static RemoteViews build(Context ctx, int id) {
-        RemoteViews rv = new RemoteViews(ctx.getPackageName(), R.layout.widget);
+    private static RemoteViews build(Context ctx, int id, int layout) {
+        RemoteViews rv = new RemoteViews(ctx.getPackageName(), layout);
+        if (layout == R.layout.widget_wide) {
+            // 서비스가 꺼져 있으면 값이 바뀌어도 다시 그리지 못해 낡는다. 그때는 상태 대신 「열기」로 그린다.
+            boolean live = SimTapService.isRunning();
+            net(ctx, rv, id, SLOT_WIFI, R.string.wifi_label, live ? NetState.read(ctx, NetState.WIFI) : -1);
+            net(ctx, rv, id, SLOT_MOBILE, R.string.mobile_label, live ? NetState.read(ctx, NetState.MOBILE) : -1);
+        }
         int lines = SimCache.lineCount(ctx);
         for (int slot = 0; slot < SLOT_DATA; slot++) {
             boolean show = slot == 0 || lines > slot;
@@ -95,7 +112,14 @@ public class SimTapWidget extends AppWidgetProvider {
         return rv;
     }
 
-    /** lineName: 회선 칸이 보인 SIM 이름(트램펄린이 캐시와 대조해 낡은 위젯을 거른다). 데이터 칸은 null. */
+    /** 와이파이·모바일 데이터 칸. on: 1 켜짐, 0 꺼짐, -1 모름(「열기」). */
+    private static void net(Context ctx, RemoteViews rv, int id, int slot, int label, int on) {
+        fill(ctx, rv, id, slot, ctx.getString(label),
+                ctx.getString(on == 1 ? R.string.state_on : on == 0 ? R.string.state_off : R.string.state_open),
+                on == 1 ? R.drawable.bg_on : on == 0 ? R.drawable.bg_off : R.drawable.bg_unknown, -1, null);
+    }
+
+    /** lineName: 회선 칸이 보인 SIM 이름(트램펄린이 캐시와 대조해 낡은 위젯을 거른다). 그 밖의 칸은 null. */
     private static void fill(Context ctx, RemoteViews rv, int id, int slot, String name, String state, int bg, int target,
                              String lineName) {
         rv.setTextViewText(NAME[slot], name);
