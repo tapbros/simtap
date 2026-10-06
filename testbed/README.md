@@ -29,3 +29,5 @@
 | psim_esim | 두 회선 켜짐 | 데이터 칸 | 데이터 SIM 선택 화면 열림 |
 
 가짜 앱의 최대 개수 창 본문, 위험 창 인자 채우기 규칙, 지연 시간(eSIM 6초, 그 외 2초)은 시험용으로 정한 값이다.
+
+회선을 토글한 뒤 `dataSettleMs`(기본 3000ms) 동안은 두 회선이 모두 켜져 있어도 「모바일 데이터」 행이 disabled 로 남는다(S25 One UI 8.5 제보의 삼성 동작 모사). `--ei settle <ms>` 로 바꾸고 logcat `FakeSim` 의 `dataRow enabled=<bool>` 로 행 상태가 바뀐 시점을 본다.

@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -24,13 +25,21 @@ import java.util.List;
 
 /**
  * 삼성 SIM 관리자 첫 화면 흉내(One UI 9.0 KR 디컴파일 기준). 진짜 SIM 은 건드리지 않는다.
- * 시나리오: am start -n com.tapbros.fakesim/.SimCardMgrActivity --es scenario psim_esim [--es rename "old=new"]
+ * 시나리오: am start -n com.tapbros.fakesim/.SimCardMgrActivity --es scenario psim_esim [--es rename "old=new"] [--ei settle 3000]
  */
 public class SimCardMgrActivity extends Activity {
     static final String EXTRA_SCENARIO = "scenario";
     static final String EXTRA_RENAME = "rename";
     static final long DELAY_MS = 2000;
     static final long DELAY_ESIM_MS = 6000;
+    static final String EXTRA_SETTLE = "settle";
+    /**
+     * 회선을 토글한 뒤 이 시간 동안은 두 회선이 모두 켜져 있어도 「모바일 데이터」 행이 disabled 다(삼성 동작 모사,
+     * S25 One UI 8.5 제보). 프로세스가 사는 동안만 유지한다.
+     */
+    private static long dataSettleMs = 3000;
+    /** 마지막 토글의 정착 시각(SystemClock.uptimeMillis). */
+    private static long settleUntil;
 
     private static final int T_HEADER = 0, T_LINE = 1, T_ADD = 2, T_PREF = 3, T_SWITCH = 4;
 
@@ -47,6 +56,10 @@ public class SimCardMgrActivity extends Activity {
     private Adapter adapter;
     /** 확인 창이 떠 있거나 회선 작업 중이다. 그동안 다른 스위치 탭은 창을 새로 띄우지 않는다. */
     private boolean busy;
+    /** 마지막으로 그린 데이터 행의 enabled. 바뀔 때만 로그를 남긴다. */
+    private Boolean dataRowShown;
+    /** 정착 시간이 지나면 화면만 다시 그린다. 확인 창이 잡고 있는 Line 객체를 바꾸지 않도록 상태는 다시 읽지 않는다. */
+    private final Runnable settled = this::render;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -91,6 +104,11 @@ public class SimCardMgrActivity extends Activity {
     private void handleIntent(Intent i) {
         String sc = i.getStringExtra(EXTRA_SCENARIO);
         String rename = i.getStringExtra(EXTRA_RENAME);
+        if (i.hasExtra(EXTRA_SETTLE)) {
+            dataSettleMs = Math.max(0, i.getIntExtra(EXTRA_SETTLE, 3000));
+            Log.i(SimState.TAG, "dataSettleMs " + dataSettleMs);
+            i.removeExtra(EXTRA_SETTLE);
+        }
         if (sc != null) {
             SimState s = SimState.scenario(sc);
             if (s == null) {
@@ -126,10 +144,25 @@ public class SimCardMgrActivity extends Activity {
         rows.add(new Row(T_PREF, getString(R.string.pref_msg), null));
         rows.add(new Row(T_PREF, getString(R.string.pref_data), null));
         rows.add(new Row(T_SWITCH, getString(R.string.pref_data_switch), null));
+        render();
+    }
+
+    /** 목록을 다시 그린다. 데이터 행이 정착을 기다리는 중이면 그 시각에 한 번 더 그린다. */
+    private void render() {
+        boolean en = dataRowEnabled();
+        if (dataRowShown == null || dataRowShown != en) {
+            dataRowShown = en;
+            Log.i(SimState.TAG, "dataRow enabled=" + en);
+        }
+        handler.removeCallbacks(settled);
+        long left = settleUntil - SystemClock.uptimeMillis();
+        if (left > 0) handler.postDelayed(settled, left);
         adapter.notifyDataSetChanged();
     }
 
-    private boolean dataRowEnabled() { return state.onCount() >= 2; }
+    private boolean dataRowEnabled() {
+        return state.onCount() >= 2 && SystemClock.uptimeMillis() >= settleUntil;
+    }
 
     private SimState.Line firstOtherOn(SimState.Line l) {
         for (SimState.Line o : state.lines) if (o != l && o.present && o.on) return o;
@@ -231,6 +264,7 @@ public class SimCardMgrActivity extends Activity {
             d.setCancelable(false);
             handler.postDelayed(() -> {
                 run.run();
+                settleUntil = SystemClock.uptimeMillis() + dataSettleMs;
                 state.fixData();
                 state.save(this);
                 working = false;

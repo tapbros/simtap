@@ -313,7 +313,9 @@ public class SimTapService extends AccessibilityService {
         if (dataTitle != null) {
             AccessibilityNodeInfo summary = summaryOf(dataTitle);
             CharSequence s = summary != null ? summary.getText() : null;
-            changed |= SimCache.saveData(this, dataTitle.isEnabled(), s != null ? s.toString() : "");
+            // 행이 있다는 것만 저장한다. 회선을 바꾼 직후에는 행이 잠시 disabled 이고 observe() 는 스위치 값이 바뀌면
+            // 바로 홈으로 나가므로 enabled 로 돌아오는 것을 보지 못한다(S25 One UI 8.5 제보). 누를 수 있는지는 seekData 가 본다.
+            changed |= SimCache.saveData(this, true, s != null ? s.toString() : "");
         } else if (!switches.isEmpty() && atTop && atEnd) {
             changed |= SimCache.saveData(this, false, "");
         }

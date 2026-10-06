@@ -88,9 +88,9 @@ PAD = 4                 # transparent margin around the sheet
 SW = 360                # sheet width: the 320 dp widget plus room for the one-line footnote
 
 TEXT = {
-    '': dict(dual='Dual SIM', single='Single SIM', first='Before the first read',
+    '': dict(dual='Dual SIM', dual_off='Dual SIM, one line off', single='Single SIM', first='Before the first read',
              foot='Example · drawn from the app layout, not a device screenshot'),
-    'ko': dict(dual='듀얼 SIM', single='단일 SIM', first='처음 설치(상태 읽기 전)',
+    'ko': dict(dual='듀얼 SIM', dual_off='듀얼 SIM, 회선 하나 꺼짐', single='단일 SIM', first='처음 설치(상태 읽기 전)',
                foot='예시 화면 · 앱 레이아웃으로 그린 미리보기이며 실제 기기 화면이 아닙니다'),
 }
 
@@ -128,8 +128,11 @@ for lang, suffix in (('', ''), ('ko', '.ko')):
     sim1 = s['sim_default'].replace('%1$d', '1')
     # Rows mirror SimTapWidget.build(): GONE cells are omitted, so a single visible cell takes the full width
     rows = [
-        (t['dual'], [('SKT', s['state_on'], 'bg_on'), ('KT eSIM', s['state_off'], 'bg_off'),
+        (t['dual'], [('SKT', s['state_on'], 'bg_on'), ('KT eSIM', s['state_on'], 'bg_on'),
                      (s['data_label'], 'SKT', 'bg_data')]),
+        # with fewer than two lines on, the data cell stays but is dimmed (SimTapWidget.build())
+        (t['dual_off'], [('SKT', s['state_on'], 'bg_on'), ('KT eSIM', s['state_off'], 'bg_off'),
+                         (s['data_label'], s['state_need_two'], 'bg_unknown')]),
         (t['single'], [(sim1, s['state_on'], 'bg_on')]),
         (t['first'], [(sim1, s['state_tap_to_read'], 'bg_unknown')]),
     ]

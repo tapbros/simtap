@@ -16,6 +16,7 @@ import android.widget.RemoteViews;
 /**
  * 4x1 패널. 칸 0 = SIM 1 회선, 칸 1 = SIM 2 회선, 칸 2 = 데이터 SIM.
  * 서비스가 화면에서 그 행을 본 적이 있어야 칸을 보인다. 캐시가 없으면 SIM 1 칸만 「눌러서 읽기」로 보인다.
+ * 데이터 칸은 회선이 2개 이상일 때 보이고 켜진 회선이 2개 미만이면 흐리게 「SIM 2개 필요」로 그린다.
  */
 public class SimTapWidget extends AppWidgetProvider {
     static final int SLOT_DATA = 2;
@@ -80,12 +81,16 @@ public class SimTapWidget extends AppWidgetProvider {
             // 보인 상태의 반대가 목표다. 서비스는 실제 값이 이미 목표면 누르지 않는다.
             fill(ctx, rv, id, slot, name, state, bg, on == 1 ? 0 : on == 0 ? 1 : -1, name);
         }
-        boolean data = SimCache.dataShown(ctx);
+        boolean data = SimCache.dataCell(ctx);
         rv.setViewVisibility(CELL[SLOT_DATA], data ? View.VISIBLE : View.GONE);
         if (data) {
+            // 데이터 행이 enabled 인지는 캐시하지 않는다. 캐시한 회선의 켜짐 수로 판정한다(SimTapService.cache 주석).
+            // 흐린 칸도 누르면 화면을 열고 seekData 가 행이 실제로 눌리는지 본다.
+            boolean ready = SimCache.onCount(ctx) >= 2;
             String cur = SimCache.dataName(ctx);
             fill(ctx, rv, id, SLOT_DATA, ctx.getString(R.string.data_label),
-                    cur.isEmpty() ? ctx.getString(R.string.state_unknown) : cur, R.drawable.bg_data, -1, null);
+                    !ready ? ctx.getString(R.string.state_need_two) : cur.isEmpty() ? ctx.getString(R.string.state_unknown) : cur,
+                    ready ? R.drawable.bg_data : R.drawable.bg_unknown, -1, null);
         }
         return rv;
     }

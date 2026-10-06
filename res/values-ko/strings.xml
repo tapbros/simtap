@@ -30,4 +30,5 @@
     <string name="toast_read_first">현재 상태를 읽어 옵니다. 위젯에 표시되면 다시 눌러 바꾸세요.</string>
     <string name="cache_none">아직 읽지 않았습니다</string>
     <string name="cache_item">%1$s: %2$s</string>
+    <string name="state_need_two">SIM 2개 필요</string>
 </resources>

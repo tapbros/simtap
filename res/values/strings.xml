@@ -30,4 +30,5 @@
     <string name="toast_read_first">Reading the current state. Tap again to switch once the widget shows it.</string>
     <string name="cache_none">Not read yet</string>
     <string name="cache_item">%1$s: %2$s</string>
+    <string name="state_need_two">Needs 2 SIMs</string>
 </resources>

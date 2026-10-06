@@ -41,7 +41,7 @@ public class MainActivity extends Activity {
     /** 위젯이 그리는 캐시를 한 줄로. 예: 「SIM 1: 켜짐 · eSIM 회사: 꺼짐 · 데이터: SKT」. */
     private String cacheSummary() {
         int lines = SimCache.lineCount(this);
-        boolean data = SimCache.dataShown(this);
+        boolean data = SimCache.dataCell(this);
         if (lines == 0 && !data) return getString(R.string.cache_none);
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < lines; i++) {
@@ -56,7 +56,8 @@ public class MainActivity extends Activity {
             String cur = SimCache.dataName(this);
             if (sb.length() > 0) sb.append(" · ");
             sb.append(getString(R.string.cache_item, getString(R.string.data_label),
-                    cur.isEmpty() ? getString(R.string.state_unknown) : cur));
+                    SimCache.onCount(this) < 2 ? getString(R.string.state_need_two)
+                            : cur.isEmpty() ? getString(R.string.state_unknown) : cur));
         }
         return sb.toString();
     }
