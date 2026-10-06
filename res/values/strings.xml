@@ -29,6 +29,12 @@
     <string name="btn_read_state">Read current state</string>
     <string name="read_state_hint">Opens the SIM manager screen without tapping anything so the widget can show SIM names and states. Go back when it opens.</string>
     <string name="toast_no_app">No app can open this screen.</string>
+    <string name="btn_update">Check for updates</string>
+    <string name="main_update_hint">SimTap has no internet permission, so it can\'t check for or download new versions by itself.</string>
+    <string name="update_details">1) Tap Check for updates to open the latest release page.\n2) If the top version is newer than the version at the bottom of this screen, tap simtap-v&lt;version&gt;.apk to download it.\n3) Turn off Scan apps with Play Protect for a moment and install it over the current app. Your settings and widget stay as they are.\nFor automatic update checks, add this repository to the Obtainium app.</string>
+    <string name="details_show">Details ▾</string>
+    <string name="details_hide">Hide ▴</string>
+    <string name="releases_url" translatable="false">https://github.com/tapbros/simtap/releases/latest</string>
     <string name="main_footer">Version %1$s\n© 2026 tapbros · Apache-2.0</string>
     <string name="state_tap_to_read">Tap to read</string>
     <string name="toast_read_first">Reading the current state. Tap again to switch once the widget shows it.</string>

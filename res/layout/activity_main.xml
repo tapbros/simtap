@@ -83,11 +83,53 @@
             android:layout_marginTop="4dp"
             android:text="@string/read_state_hint" />
 
+        <!-- 공통 영역: 항상 보인다 -->
+        <Button
+            android:id="@+id/btn_update"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:text="@string/btn_update" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/main_update_hint"
+            android:textAppearance="@android:style/TextAppearance.DeviceDefault.Small" />
+        <TextView
+            android:id="@+id/update_toggle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:minHeight="48dp"
+            android:gravity="center_vertical"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?android:attr/selectableItemBackground"
+            android:text="@string/details_show"
+            android:textColor="?android:attr/colorAccent"
+            android:textAppearance="@android:style/TextAppearance.DeviceDefault.Small" />
+
+        <LinearLayout
+            android:id="@+id/update_more"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/update_details"
+                android:textAppearance="@android:style/TextAppearance.DeviceDefault.Small" />
+        </LinearLayout>
+
         <TextView
             android:id="@+id/footer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
+            android:layout_marginTop="24dp"
             android:alpha="0.6"
             android:textAppearance="@android:style/TextAppearance.DeviceDefault.Small" />
     </LinearLayout>

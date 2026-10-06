@@ -8,6 +8,7 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -24,6 +25,9 @@ public class MainActivity extends Activity {
                 open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                         Uri.fromParts("package", getPackageName(), null))));
         findViewById(R.id.btn_read_state).setOnClickListener(v -> readState());
+        bindToggle(R.id.update_toggle, R.id.update_more);
+        findViewById(R.id.btn_update).setOnClickListener(v ->
+                open(new Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.releases_url)))));
         ((TextView) findViewById(R.id.footer)).setText(getString(R.string.main_footer, versionName()));
     }
 
@@ -76,6 +80,17 @@ public class MainActivity extends Activity {
         } catch (ActivityNotFoundException | SecurityException e) {
             Toast.makeText(this, R.string.toast_open_fail, Toast.LENGTH_LONG).show();
         }
+    }
+
+    /** 자세히 토글. 기본은 접힘(layout 에서 gone). */
+    private void bindToggle(int toggleId, int moreId) {
+        TextView toggle = (TextView) findViewById(toggleId);
+        View more = findViewById(moreId);
+        toggle.setOnClickListener(v -> {
+            boolean show = more.getVisibility() != View.VISIBLE;
+            more.setVisibility(show ? View.VISIBLE : View.GONE);
+            toggle.setText(show ? R.string.details_hide : R.string.details_show);
+        });
     }
 
     private void open(Intent i) {

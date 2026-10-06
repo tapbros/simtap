@@ -29,6 +29,11 @@
     <string name="btn_read_state">상태 읽어 오기</string>
     <string name="read_state_hint">SIM 관리자 화면을 열기만 하고 아무것도 누르지 않습니다. 열리면 위젯에 SIM 이름과 상태가 표시됩니다. 그다음 뒤로 가기를 누르세요.</string>
     <string name="toast_no_app">이 화면을 열 수 있는 앱이 없습니다.</string>
+    <string name="btn_update">업데이트 확인</string>
+    <string name="main_update_hint">SimTap 은 인터넷 권한이 없어서 새 버전을 직접 확인하거나 받지 않습니다.</string>
+    <string name="update_details">1) 업데이트 확인을 누르면 최신 릴리스 페이지가 열립니다.\n2) 맨 위 버전이 이 화면 아래 버전보다 높으면 simtap-v버전.apk 를 눌러 받습니다.\n3) 설치할 때 Play 프로텍트 앱 검사를 잠깐 끄고 덮어 설치합니다. 설정과 위젯은 그대로 남습니다.\n자동으로 받고 싶으면 Obtainium 앱에 이 저장소 주소를 추가하세요.</string>
+    <string name="details_show">자세히 ▾</string>
+    <string name="details_hide">접기 ▴</string>
     <string name="main_footer">버전 %1$s\n© 2026 tapbros · Apache-2.0</string>
     <string name="state_tap_to_read">눌러서 읽기</string>
     <string name="toast_read_first">현재 상태를 읽어 옵니다. 위젯에 표시되면 다시 눌러 바꾸세요.</string>
