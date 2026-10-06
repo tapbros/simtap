@@ -12,7 +12,8 @@ import android.widget.Toast;
 
 /**
  * 위젯 칸 탭을 받아 arm(위젯 id, 칸, 목표값, SIM 이름, 시각)을 기록하고 SIM 관리자 화면을 연 뒤 바로 끝난다.
- * 5x1 위젯의 와이파이·데이터 칸은 arm 없이 시스템 패널만 연다. 일반 앱은 둘 다 직접 바꾸지 못한다.
+ * 5x1 위젯의 와이파이·데이터 칸은 시스템 인터넷 창을 연다. 일반 앱은 둘 다 직접 바꾸지 못하므로 서비스가 켜져 있고
+ * 위젯이 보인 상태가 지금 상태와 같을 때만 서비스에 net 작업을 걸어 그 창의 스위치를 누르게 한다(prefs arm 없음).
  */
 public class TrampolineActivity extends Activity {
     static final String PREFS = "arm";
@@ -41,8 +42,17 @@ public class TrampolineActivity extends Activity {
         super.onCreate(b);
         int slot = getIntent().getIntExtra(EXTRA_SLOT, -1);
         if (slot == SimTapWidget.SLOT_WIFI || slot == SimTapWidget.SLOT_MOBILE) {
-            // 접근성 서비스가 꺼져 있어도 열린다.
-            openPanel(slot == SimTapWidget.SLOT_WIFI);
+            boolean wifi = slot == SimTapWidget.SLOT_WIFI;
+            // 위젯이 보낸 target 은 보인 상태의 반대다(SimTapWidget.net). 지금 상태의 반대와 같아야 누른다.
+            int target = getIntent().getIntExtra(EXTRA_TARGET, -1);
+            int cur = Build.VERSION.SDK_INT >= 29 && SimTapService.isRunning()
+                    ? NetState.read(this, wifi ? NetState.WIFI : NetState.MOBILE) : -1;
+            boolean stale = cur >= 0 && target != 1 - cur;
+            if (stale) SimTapWidget.refresh(this);
+            // 서비스 꺼짐, 상태 모름, 낡은 위젯, API 29 미만이면 작업을 걸지 않는다. 창만 열리고 아무것도 누르지 않는다.
+            boolean job = cur >= 0 && !stale && SimTapService.startNet(slot, target);
+            // 인터넷 창이 아닌 대체 화면이 열렸거나 아무것도 못 열었으면 누를 대상이 없다. 작업을 거두고 범위를 되돌린다.
+            if (!openPanel(wifi) && job) SimTapService.cancel(this);
             finish();
             return;
         }
@@ -92,21 +102,24 @@ public class TrampolineActivity extends Activity {
         finish();
     }
 
-    /** 와이파이 또는 인터넷 연결 패널(API 29+). 그 아래 버전이거나 패널이 없으면 해당 설정 화면. 둘 다 없으면 토스트. */
-    private void openPanel(boolean wifi) {
-        String[] actions = {
-                Build.VERSION.SDK_INT < 29 ? null
-                        : wifi ? Settings.Panel.ACTION_WIFI : Settings.Panel.ACTION_INTERNET_CONNECTIVITY,
-                wifi ? Settings.ACTION_WIFI_SETTINGS : Settings.ACTION_DATA_USAGE_SETTINGS };
+    /**
+     * 인터넷 연결 패널(API 29+). 두 칸 모두 이 창을 쓴다. ACTION_WIFI 패널은 설정 앱 화면으로 뜨고 스위치에 id 가 없다
+     * (Fold8 One UI 9.0 실기기). 그 아래 버전이거나 패널이 없으면 해당 설정 화면. 둘 다 없으면 토스트.
+     * 인터넷 연결 패널을 열었을 때만 true.
+     */
+    private boolean openPanel(boolean wifi) {
+        String panel = Build.VERSION.SDK_INT < 29 ? null : Settings.Panel.ACTION_INTERNET_CONNECTIVITY;
+        String[] actions = { panel, wifi ? Settings.ACTION_WIFI_SETTINGS : Settings.ACTION_DATA_USAGE_SETTINGS };
         for (String a : actions) {
             if (a == null) continue;
             try {
                 startActivity(new Intent(a));
-                return;
+                return a == panel;
             } catch (ActivityNotFoundException | SecurityException e) {
                 // 다음 후보로 넘어간다.
             }
         }
         Toast.makeText(this, R.string.toast_no_app, Toast.LENGTH_LONG).show();
+        return false;
     }
 }

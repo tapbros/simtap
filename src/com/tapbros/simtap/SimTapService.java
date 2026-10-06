@@ -1,6 +1,7 @@
 package com.tapbros.simtap;
 
 import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.ContentObserver;
@@ -22,12 +23,14 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * SIM 관리자 화면(telephonyui)만 본다.
+ * 평소에는 SIM 관리자 화면(telephonyui)만 본다. 5x1 위젯의 와이파이·데이터 칸 작업(net 작업) 동안만 시스템 UI 를 함께 본다.
  * 1) 화면을 볼 때마다(arm 여부와 무관) 회선 스위치의 순서·이름·값과 데이터 행을 캐시하고 위젯을 갱신한다.
  * 2) 위젯 칸이 arm 한 뒤에만 그 칸의 행을 한 번 누른다. 회선은 화면 순번이 아니라 탭할 때 위젯이 보인 SIM 이름으로
  *    찾는다. 유심이 없으면 화면 0번째 스위치가 eSIM 일 수 있기 때문이다. arm 은 첫 이벤트에서 메모리 작업으로 옮기고 바로 지우므로
  *    스크롤이나 클릭이 다시 부르는 이벤트가 같은 arm 으로 또 누르지 않는다.
- * 3) 5x1 위젯의 와이파이·데이터 칸은 누르지 않는다. 그 값(Settings.Global)이 바뀔 때 위젯을 다시 그리기만 한다.
+ * 3) 5x1 위젯의 와이파이·데이터 칸은 트램펄린이 net 작업을 걸었을 때만 시스템 인터넷 창(com.android.systemui)의
+ *    그 스위치를 한 번 누른다. 모바일 데이터 끄기만 뒤따르는 확인 창의 확인을 한 번 누른다. 작업이 끝나면 범위를 되돌린다.
+ *    그 값(Settings.Global)이 바뀔 때는 위젯을 다시 그린다.
  */
 public class SimTapService extends AccessibilityService {
     static final String TAG = "SimTap";
@@ -60,7 +63,23 @@ public class SimTapService extends AccessibilityService {
     /** 스크롤 중에도 내용 변경 이벤트가 이어지므로 스크롤 동작 사이 최소 간격. */
     static final long SCROLL_GAP_MS = 400;
 
-    private static final int IDLE = 0, SEEK = 1, OBSERVE = 2;
+    /** net 작업이 보는 시스템 UI. 시험 빌드(SIMTAP_TARGET_PKG)에서도 진짜 값이다. */
+    static final String NET_PKG = "com.android.systemui";
+    /** 인터넷 창(AOSP InternetDialog)의 노드 id. Fold8 One UI 9.0 실기기 덤프. */
+    static final String NET_TITLE = NET_PKG + ":id/internet_dialog_title";
+    static final String NET_WIFI_TOGGLE = NET_PKG + ":id/wifi_toggle";
+    static final String NET_MOBILE_TOGGLE = NET_PKG + ":id/mobile_toggle";
+    static final String NET_WIFI_CONNECTED = NET_PKG + ":id/wifi_connected_title";
+    static final String NET_DONE = NET_PKG + ":id/done_button";
+    static final String NET_ALERT_TITLE = "android:id/alertTitle";
+    /** 스위치를 누른 뒤 값이 목표가 되기를 기다리는 시간. */
+    static final long NET_OBSERVE_MS = 15000;
+    /** 와이파이 켜기: 켜진 뒤 자동 연결을 기다리는 시간. 넘기면 창을 열어 둔다. */
+    static final long NET_CONNECT_MS = 10000;
+    /** net 작업 중 화면을 다시 읽는 간격. 이벤트가 더 오지 않아도 진행한다. */
+    static final long NET_POLL_MS = 500;
+
+    private static final int IDLE = 0, SEEK = 1, OBSERVE = 2, NET_SEEK = 3, NET_OBSERVE = 4;
 
     private static SimTapService instance;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -112,6 +131,34 @@ public class SimTapService extends AccessibilityService {
     private long lastScrollAt;
     private String lastWindowClass = "";
 
+    /** net 작업: 칸(SLOT_WIFI 또는 SLOT_MOBILE)과 목표값(0/1). */
+    private int netSlot = -1;
+    private int netTarget = -1;
+    /** 접근성 범위에 시스템 UI 를 넣어 둔 상태다. 작업이 끝나면 반드시 되돌린다. */
+    private boolean scopeWide;
+    /** 스위치와 확인 버튼은 작업당 한 번만 누른다. */
+    private boolean netToggleClicked;
+    private boolean netConfirmClicked;
+    private long netClickAt;
+    /** 마지막으로 읽은 스위치 상태(1 켜짐, 0 꺼짐, -1 없음 또는 비활성, -2 아직 안 읽음)와 그 값을 처음 본 시각. */
+    private int netSeen = -2;
+    private long netSeenAt;
+    /** 스위치를 누른 뒤 인터넷 창이 아닌 시스템 UI 창을 봤다. 그 첫 창만 확인 대상이다. */
+    private boolean netSawOther;
+    private boolean netConfirmEligible;
+    /** 확인 창 조건이 맞은 것을 처음 본 시각과 그때의 제목. 0 이면 아직 못 봤다. */
+    private long netConfirmSeenAt;
+    private String netConfirmTitle;
+    /** 와이파이 켜기: 값이 목표가 된 것을 처음 본 시각. 0 이면 아직이다. */
+    private long netReachedAt;
+
+    private final Runnable netTimeout = new Runnable() {
+        @Override public void run() {
+            if (phase == NET_SEEK) netLeave("seek timeout");
+            else if (phase == NET_OBSERVE) netLeave(netReachedAt != 0 ? "wifi not connected" : "observe timeout");
+        }
+    };
+
     private final Runnable seekTimeout = new Runnable() {
         @Override public void run() {
             // arm 이 만료돼 지워졌어도(takeArm) onArmed 가 jobSlot 에 칸을 남겨 두므로 안내가 나온다.
@@ -144,6 +191,45 @@ public class SimTapService extends AccessibilityService {
         instance.endJob();
         instance.jobSlot = slot;
         instance.handler.postDelayed(instance.seekTimeout, SEEK_MS);
+    }
+
+    /**
+     * 트램펄린이 5x1 위젯의 와이파이·데이터 칸 탭을 받아 인터넷 창을 열기 직전에 부른다. 메모리 상태만 쓴다(prefs arm 없음).
+     * 범위를 넓히지 못하면 작업을 걸지 않고 false 를 돌려준다. 그때 트램펄린은 창만 연다.
+     */
+    static boolean startNet(int slot, int target) {
+        SimTapService s = instance;
+        if (s == null || target < 0 || target > 1) return false;
+        disarm(s);
+        s.endJob();
+        if (!s.scope(true)) return false;
+        s.netSlot = slot;
+        s.netTarget = target;
+        s.phase = NET_SEEK;
+        Log.i(TAG, "net job start slot=" + slot + " target=" + target);
+        s.handler.postDelayed(s.netTimeout, SEEK_MS);
+        // 넓힌 범위가 적용되기 전에 창이 뜨면 이벤트가 오지 않는다. 이벤트를 기다리지 않고 바로 폴링을 건다.
+        s.handler.postDelayed(s.reevaluate, NET_POLL_MS);
+        return true;
+    }
+
+    /**
+     * 이벤트를 받는 패키지 범위를 바꾼다. wide 면 SIM 관리자와 시스템 UI, 아니면 SIM 관리자만.
+     * 정적 설정(res/xml/accessibility_service_config.xml)은 SIM 관리자만이고 넓힘은 net 작업 동안만 유지한다.
+     */
+    private boolean scope(boolean wide) {
+        try {
+            AccessibilityServiceInfo info = getServiceInfo();
+            if (info == null) { Log.i(TAG, "scope " + (wide ? "widen" : "restore") + " skipped: no service info"); return false; }
+            info.packageNames = wide ? new String[] { PKG, NET_PKG } : new String[] { PKG };
+            setServiceInfo(info);
+            scopeWide = wide;
+            Log.i(TAG, wide ? "scope widened to " + PKG + " + " + NET_PKG : "scope restored to " + PKG);
+            return true;
+        } catch (RuntimeException e) {
+            Log.i(TAG, "scope " + (wide ? "widen" : "restore") + " failed: " + e);
+            return false;
+        }
     }
 
     static void disarm(Context ctx) {
@@ -232,6 +318,18 @@ public class SimTapService extends AccessibilityService {
         handler.removeCallbacks(reevaluate);
         matchedOnce = null;
         recheckLeft = 0;
+        handler.removeCallbacks(netTimeout);
+        netSlot = -1;
+        netTarget = -1;
+        netToggleClicked = false;
+        netConfirmClicked = false;
+        netSeen = -2;
+        netSawOther = false;
+        netConfirmEligible = false;
+        netConfirmSeenAt = 0;
+        netConfirmTitle = null;
+        netReachedAt = 0;
+        if (scopeWide) scope(false);
     }
 
     @Override
@@ -239,6 +337,8 @@ public class SimTapService extends AccessibilityService {
         instance = this;
         // 서비스가 새로 붙기 전(재부팅, 재설치)에 남은 arm 은 지금 탭이 아니다.
         disarm(this);
+        // 앞선 연결이 넓힌 채 끝났을 수 있다. 붙을 때 한 번 SIM 관리자만으로 되돌린다.
+        scope(false);
         try {
             for (String key : NetState.KEYS) {
                 getContentResolver().registerContentObserver(Settings.Global.getUriFor(key), false, netObserver);
@@ -282,6 +382,16 @@ public class SimTapService extends AccessibilityService {
 
     private void evaluate() {
         AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (phase == NET_SEEK || phase == NET_OBSERVE) {
+            // net 작업 중에는 시스템 UI 루트만 보고 SIM 쪽(캐시, arm 소비, 클릭)은 돌리지 않는다.
+            long next = root != null && NET_PKG.equals(String.valueOf(root.getPackageName())) ? net(root) : NET_POLL_MS;
+            if (phase == NET_SEEK || phase == NET_OBSERVE) {
+                handler.removeCallbacks(reevaluate);
+                handler.postDelayed(reevaluate, next);
+            }
+            return;
+        }
+        // net 작업이 없을 때 시스템 UI 루트는 여기서 걸러진다.
         if (root == null || !PKG.equals(String.valueOf(root.getPackageName()))) return;
 
         List<AccessibilityNodeInfo> switches = switches(root);
@@ -559,6 +669,111 @@ public class SimTapService extends AccessibilityService {
             if (wait <= 0) { Log.i(TAG, "line " + jobSlot + " dialog closed without change, cancelled"); endJob(); }
             else { handler.removeCallbacks(reevaluate); handler.postDelayed(reevaluate, wait + 100); }
         }
+    }
+
+    /**
+     * net 작업의 한 번 읽기. 시스템 UI 루트에서만 온다. 다음에 다시 읽을 때까지의 시간(ms)을 돌려준다.
+     * 인터넷 창(internet_dialog_title 이 있는 창)에서만 스위치와 완료를 누르고 그 밖의 창은 netConfirm 조건에 맞는 것만 누른다.
+     */
+    private long net(AccessibilityNodeInfo root) {
+        long now = SystemClock.elapsedRealtime();
+        if (first(root, NET_TITLE) == null) {
+            return phase == NET_OBSERVE ? netConfirm(root, now) : NET_POLL_MS;
+        }
+        // 인터넷 창으로 돌아왔다. 처음 뜬 다른 창이 닫힌 뒤에 뜨는 창은 확인하지 않는다.
+        if (netSawOther) netConfirmEligible = false;
+        netConfirmSeenAt = 0;
+        boolean wifi = netSlot == SimTapWidget.SLOT_WIFI;
+        AccessibilityNodeInfo t = first(root, wifi ? NET_WIFI_TOGGLE : NET_MOBILE_TOGGLE);
+        int st = t == null || !t.isEnabled() ? -1 : t.isChecked() ? 1 : 0;
+        // 창은 뜬 직후 스위치 값을 늦게 채울 수 있다(AOSP InternetDialog 는 값을 비동기로 갱신한다, 실기기 미확인).
+        // 같은 값을 RECHECK_MS 이상 떨어진 두 번의 읽기에서 봐야 판정한다. 스위치가 없다는 판정은 SETTLE_MS 를 기다린다.
+        if (st != netSeen) { netSeen = st; netSeenAt = now; return RECHECK_MS; }
+        if (now - netSeenAt < (st < 0 ? SETTLE_MS : RECHECK_MS)) return RECHECK_MS;
+        int real = NetState.read(this, wifi ? NetState.WIFI : NetState.MOBILE);
+        if (phase == NET_SEEK) {
+            if (st < 0) { netLeave("toggle missing or disabled"); return NET_POLL_MS; }
+            // 스위치가 설정값과 어긋나면 누르지 않고 기다린다. 끝내 어긋나면 시간 초과로 창을 열어 둔다.
+            if (st != real) return NET_POLL_MS;
+            if (st == netTarget) { netClose(root, "already target"); return NET_POLL_MS; }
+            if (netToggleClicked) return NET_POLL_MS;
+            // 누르기 전에 단계를 넘겨 이어지는 읽기가 다시 누르지 않게 한다.
+            netToggleClicked = true;
+            phase = NET_OBSERVE;
+            netClickAt = now;
+            netSeen = -2;
+            // 확인 창은 모바일 데이터 끄기에서만 누른다. 와이파이와 데이터 켜기는 어떤 창도 누르지 않는다.
+            netConfirmEligible = !wifi && netTarget == 0;
+            handler.removeCallbacks(netTimeout);
+            handler.postDelayed(netTimeout, NET_OBSERVE_MS);
+            boolean ok = t.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+            Log.i(TAG, "net toggle click slot=" + netSlot + " before=" + st + " performed=" + ok);
+            if (!ok) netLeave("toggle click failed");
+            return NET_POLL_MS;
+        }
+        // AOSP 의 스위치는 누르는 순간 값이 먼저 뒤집히고 확인 창은 그 뒤에 뜬다. 스위치만 보면 아직 켜져 있는데
+        // 닫을 수 있어 설정값(Settings.Global)도 목표여야 바뀐 것으로 본다. 설정값을 못 읽을 때만 스위치 값으로 판정한다.
+        if (st != netTarget || (real >= 0 && real != netTarget)) return NET_POLL_MS;
+        if (!wifi || netTarget == 0) { netClose(root, "target reached"); return NET_POLL_MS; }
+        if (netReachedAt == 0) {
+            netReachedAt = now;
+            handler.removeCallbacks(netTimeout);
+            handler.postDelayed(netTimeout, NET_CONNECT_MS);
+        }
+        AccessibilityNodeInfo c = first(root, NET_WIFI_CONNECTED);
+        CharSequence name = c != null && c.isVisibleToUser() ? c.getText() : null;
+        if (name != null && name.toString().trim().length() > 0) netClose(root, "wifi connected");
+        return NET_POLL_MS;
+    }
+
+    /**
+     * 스위치를 누른 뒤 인터넷 창이 아닌 시스템 UI 창. 모바일 데이터 끄기의 확인 창만 「사용 중지」를 한 번 누른다.
+     * 조건: 누른 뒤 AUTO_CONFIRM_WINDOW_MS 안에 처음 본 창이고 제목·확인·취소가 있고 세 번째 버튼이 없으며
+     * RECHECK_MS 이상 떨어진 두 번의 읽기가 같은 제목으로 모두 맞는다.
+     */
+    private long netConfirm(AccessibilityNodeInfo root, long now) {
+        if (!netSawOther) {
+            netSawOther = true;
+            if (now - netClickAt > AUTO_CONFIRM_WINDOW_MS) netConfirmEligible = false;
+        }
+        if (!netConfirmEligible || netConfirmClicked) return NET_POLL_MS;
+        AccessibilityNodeInfo title = first(root, NET_ALERT_TITLE);
+        AccessibilityNodeInfo ok = first(root, BUTTON_OK);
+        if (title == null || ok == null || first(root, BUTTON_CANCEL) == null || first(root, BUTTON_NEUTRAL) != null) {
+            netConfirmSeenAt = 0;
+            return RECHECK_MS;
+        }
+        String text = String.valueOf(title.getText());
+        if (netConfirmSeenAt == 0 || !text.equals(netConfirmTitle)) {
+            netConfirmSeenAt = now;
+            netConfirmTitle = text;
+            return RECHECK_MS;
+        }
+        if (now - netConfirmSeenAt < RECHECK_MS) return RECHECK_MS;
+        netConfirmClicked = true;
+        Log.i(TAG, "net confirm click title=" + text + " performed=" + ok.performAction(AccessibilityNodeInfo.ACTION_CLICK));
+        return NET_POLL_MS;
+    }
+
+    /** 인터넷 창을 닫고 작업을 끝낸다. 완료 버튼이 없거나 눌리지 않으면 뒤로 가기. */
+    private void netClose(AccessibilityNodeInfo root, String why) {
+        AccessibilityNodeInfo done = first(root, NET_DONE);
+        boolean byButton = done != null && done.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+        boolean closed = byButton || performGlobalAction(GLOBAL_ACTION_BACK);
+        Log.i(TAG, "net done (" + why + ") slot=" + netSlot + " target=" + netTarget
+                + " closed=" + closed + " by=" + (byButton ? "done_button" : "back"));
+        endJob();
+    }
+
+    /** 아무것도 더 누르지 않고 창을 열어 둔 채 작업을 끝낸다. */
+    private void netLeave(String why) {
+        Log.i(TAG, "net left open (" + why + ") slot=" + netSlot + " target=" + netTarget);
+        endJob();
+    }
+
+    private static AccessibilityNodeInfo first(AccessibilityNodeInfo root, String id) {
+        List<AccessibilityNodeInfo> l = root.findAccessibilityNodeInfosByViewId(id);
+        return l != null && !l.isEmpty() ? l.get(0) : null;
     }
 
     /** 확인 창이 진행 중인가. 확인 버튼이 꺼졌거나 ProgressBar 가 보이면 그렇다고 본다(실기기 미확인 추정). */

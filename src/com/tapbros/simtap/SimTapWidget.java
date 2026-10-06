@@ -18,7 +18,8 @@ import android.widget.RemoteViews;
  * 서비스가 화면에서 그 행을 본 적이 있어야 칸을 보인다. 캐시가 없으면 SIM 1 칸만 「눌러서 읽기」로 보인다.
  * 데이터 SIM 칸은 회선이 2개 이상일 때 보이고 켜진 회선이 2개 미만이면 흐리게 「SIM 2개 필요」로 그린다.
  * 5x1 패널(SimTapWideWidget)은 같은 칸에 칸 3 = 와이파이, 칸 4 = 모바일 데이터를 더한다. 화면 순서는 0, 1, 3, 4, 2 다.
- * 칸 3·4 는 항상 보이고 누르면 시스템 패널을 연다(TrampolineActivity). 접근성 서비스를 쓰지 않는다.
+ * 칸 3·4 는 항상 보이고 누르면 시스템 인터넷 창을 연다(TrampolineActivity). 서비스가 켜져 있고 상태를 알면
+ * 서비스가 그 창의 스위치를 한 번 눌러 켜거나 끈다(SimTapService 의 net 작업).
  */
 public class SimTapWidget extends AppWidgetProvider {
     static final int SLOT_DATA = 2;
@@ -112,11 +113,12 @@ public class SimTapWidget extends AppWidgetProvider {
         return rv;
     }
 
-    /** 와이파이·모바일 데이터 칸. on: 1 켜짐, 0 꺼짐, -1 모름(「열기」). */
+    /** 와이파이·모바일 데이터 칸. on: 1 켜짐, 0 꺼짐, -1 모름(「열기」). 회선 칸처럼 보인 상태의 반대를 target 으로 싣는다. */
     private static void net(Context ctx, RemoteViews rv, int id, int slot, int label, int on) {
         fill(ctx, rv, id, slot, ctx.getString(label),
                 ctx.getString(on == 1 ? R.string.state_on : on == 0 ? R.string.state_off : R.string.state_open),
-                on == 1 ? R.drawable.bg_on : on == 0 ? R.drawable.bg_off : R.drawable.bg_unknown, -1, null);
+                on == 1 ? R.drawable.bg_on : on == 0 ? R.drawable.bg_off : R.drawable.bg_unknown,
+                on == 1 ? 0 : on == 0 ? 1 : -1, null);
     }
 
     /** lineName: 회선 칸이 보인 SIM 이름(트램펄린이 캐시와 대조해 낡은 위젯을 거른다). 그 밖의 칸은 null. */

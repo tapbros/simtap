@@ -32,7 +32,7 @@
                 android:resource="@xml/widget_info" />
         </receiver>
 
-        <!-- 5x1: 같은 칸에 와이파이·데이터 칸을 더한 위젯. 그 두 칸은 시스템 패널을 열 뿐이라 권한이 필요 없다. -->
+        <!-- 5x1: 같은 칸에 와이파이·데이터 칸을 더한 위젯. 그 두 칸은 시스템 인터넷 창을 열고 접근성 서비스가 그 스위치를 누르므로 권한이 필요 없다. -->
         <receiver
             android:name=".SimTapWideWidget"
             android:exported="false">
