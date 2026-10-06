@@ -15,11 +15,14 @@ final class NetState {
 
     private NetState() {}
 
-    /** 1 켜짐, 0 꺼짐, -1 모름. wifi_on 은 0 이 꺼짐이고 그 밖의 양수(비행기 모드 중 켬 등)는 켜짐이다. */
+    /**
+     * 1 켜짐, 0 꺼짐, -1 모름. wifi_on 은 1 켜짐, 2 비행기 모드 중 사용자가 켬, 3 비행기 모드 때문에 꺼짐이라
+     * 1 과 2 만 켜짐으로 본다(AOSP WifiSettingsStore, 실기기 미확인). mobile_data 는 0 과 1 뿐이다.
+     */
     static int read(Context ctx, String key) {
         try {
             int v = Settings.Global.getInt(ctx.getContentResolver(), key, -1);
-            return v < 0 ? -1 : v > 0 ? 1 : 0;
+            return v < 0 ? -1 : v == 1 || v == 2 ? 1 : 0;
         } catch (RuntimeException e) {
             return -1;
         }
