@@ -19,6 +19,9 @@ for f in "$BT/aapt2" "$BT/d8" "$BT/zipalign" "$BT/apksigner" "$AJAR"; do
   [ -e "$f" ] || { echo "missing: $f" >&2; exit 1; }
 done
 
+bash "$ROOT/tools/run_tests.sh"
+python3 -m unittest discover -s "$ROOT/tests" -p 'test_republish_release.py'
+
 # 버전: VERSION_NAME 과 VERSION_CODE 를 둘 다 주면 그 값, 아니면 APK 에 들어가는 파일을 마지막으로 바꾼 커밋 제목의 vA.BB.CC.DD 라벨.
 # 문서만 고친 커밋은 앱 버전을 올리지 않는다.
 if [ -n "${VERSION_NAME:-}" ] && [ -n "${VERSION_CODE:-}" ]; then

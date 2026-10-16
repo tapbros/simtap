@@ -18,6 +18,8 @@ final class SimCache {
     /** v0.01.00.27 까지의 키(행이 있고 enabled 였다). DATA_PRESENT 가 아직 없을 때만 읽는다. */
     private static final String DATA_SHOWN = "dataShown";
     private static final String DATA_NAME = "dataName";
+    /** Never trust persisted on/off values until this process has a live service session. */
+    private static boolean observing;
 
     private SimCache() {}
 
@@ -31,7 +33,35 @@ final class SimCache {
     static String name(Context ctx, int i) { return prefs(ctx).getString("name_" + i, null); }
 
     /** 1 켜짐, 0 꺼짐, -1 모름. */
-    static int on(Context ctx, int i) { return prefs(ctx).getInt("on_" + i, -1); }
+    static int on(Context ctx, int i) { return observing ? prefs(ctx).getInt("on_" + i, -1) : -1; }
+
+    static void invalidate(Context ctx) {
+        observing = false;
+        SharedPreferences p = prefs(ctx);
+        SharedPreferences.Editor e = p.edit();
+        for (int i = 0; i < p.getInt(LINES, 0); i++) e.remove("on_" + i);
+        e.commit();
+    }
+
+    static void startSession(Context ctx) {
+        invalidate(ctx);
+        observing = true;
+    }
+
+    static boolean statesKnown(Context ctx) {
+        int count = lineCount(ctx);
+        if (count == 0) return false;
+        for (int i = 0; i < count; i++) if (on(ctx, i) < 0) return false;
+        return true;
+    }
+
+    /** A stale or unknown cell only opens the manager for reading. */
+    static boolean canToggle(Context ctx, int slot, int target, String shownName) {
+        int state = slot >= 0 && slot < lineCount(ctx) ? on(ctx, slot) : -1;
+        String name = name(ctx, slot);
+        return state >= 0 && target == 1 - state && name != null && !name.isEmpty()
+                && name.equals(shownName);
+    }
 
     /** 캐시한 회선 가운데 켜진 수. */
     static int onCount(Context ctx) {

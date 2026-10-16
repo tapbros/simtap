@@ -12,7 +12,7 @@
     <string name="desc_fmt">%1$s, %2$s</string>
     <string name="widget_desc">SIM 회선을 켜고 끄고 모바일 데이터 SIM 화면을 엽니다.</string>
     <string name="widget_wide_desc">SIM 회선과 데이터 SIM 칸에 시스템 패널을 여는 와이파이·데이터 칸을 더했습니다.</string>
-    <string name="service_desc">SimTap 위젯 칸을 탭했을 때만 동작합니다. 회선 칸은 SIM 관리자 화면을 열어 그 회선 스위치를 한 번 누르고 뜨는 일반 확인 창의 확인을 한 번 누릅니다. 다른 SIM 을 함께 끄는 켜기 창, 버튼이 셋인 창, eSIM 초기화 화면은 누르지 않습니다. 끝나면 홈 화면으로 돌아갑니다. 데이터 SIM 칸은 모바일 데이터 화면을 열기만 하고 SIM 선택과 적용은 직접 합니다. 5x1 위젯의 Wi-Fi 칸과 데이터 칸은 이 서비스를 쓰지 않고 시스템 패널을 엽니다. SIM 관리자 화면만 읽고 위젯에 보일 SIM 이름과 켜짐·꺼짐 상태를 기억합니다.</string>
+    <string name="service_desc">SimTap 위젯 칸을 탭한 뒤에만 버튼을 누릅니다. 회선 칸은 SIM 관리자를 열어 이름이 맞는 회선 스위치를 한 번 누르고 이름과 안전 조건을 통과한 일반 SIM 확인 창을 확인합니다. SIM 회선 끄기도 포함합니다. 본문이 있는 켜기 창, 버튼이 셋인 창, eSIM 초기화 화면은 직접 확인합니다. 회선 변경이 끝나면 홈으로 돌아갑니다. 데이터 SIM 칸은 선택 화면만 열고 SIM 선택과 적용은 직접 합니다. 평소에는 SIM 관리자만 읽어 이름과 상태를 기억합니다. 5x1 Wi-Fi·데이터 작업 중에만 SystemUI도 일시적으로 읽고 상태를 알면 인터넷 패널 스위치를 한 번 누릅니다. 스위치를 누른 뒤 5초 안의 첫 모바일 데이터 끄기 확인 창은 제목·본문·버튼이 설치된 시스템 리소스와 일치할 때만 자동으로 한 번 확인합니다. 다른 창이나 식별할 수 없는 창은 직접 확인합니다. 작업이 끝나거나 시간이 초과되면 SystemUI 범위를 해제합니다. 서비스가 다시 연결되면 이름은 유지하고 SIM 상태는 다시 읽을 때까지 미확인으로 표시합니다.</string>
     <string name="toast_service_off">접근성 서비스가 꺼져 있습니다. 설정 안내 화면을 엽니다.</string>
     <string name="toast_service_off_here">접근성에서 SimTap 을 먼저 켜 주세요.</string>
     <string name="toast_open_fail">SIM 관리자 화면을 열 수 없습니다. 설정 > 연결 > SIM 관리자에서 직접 바꿔 주세요.</string>

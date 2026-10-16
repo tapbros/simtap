@@ -60,7 +60,8 @@ public class MainActivity extends Activity {
             String cur = SimCache.dataName(this);
             if (sb.length() > 0) sb.append(" · ");
             sb.append(getString(R.string.cache_item, getString(R.string.data_label),
-                    SimCache.onCount(this) < 2 ? getString(R.string.state_need_two)
+                    !SimCache.statesKnown(this) ? getString(R.string.state_unknown)
+                            : SimCache.onCount(this) < 2 ? getString(R.string.state_need_two)
                             : cur.isEmpty() ? getString(R.string.state_unknown) : cur));
         }
         return sb.toString();

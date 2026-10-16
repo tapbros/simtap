@@ -107,7 +107,8 @@ public class SimTapWidget extends AppWidgetProvider {
             boolean ready = SimCache.onCount(ctx) >= 2;
             String cur = SimCache.dataName(ctx);
             fill(ctx, rv, id, SLOT_DATA, ctx.getString(R.string.data_label),
-                    !ready ? ctx.getString(R.string.state_need_two) : cur.isEmpty() ? ctx.getString(R.string.state_unknown) : cur,
+                    !SimCache.statesKnown(ctx) ? ctx.getString(R.string.state_unknown)
+                            : !ready ? ctx.getString(R.string.state_need_two) : cur.isEmpty() ? ctx.getString(R.string.state_unknown) : cur,
                     ready ? R.drawable.bg_data : R.drawable.bg_unknown, -1, null);
         }
         return rv;
